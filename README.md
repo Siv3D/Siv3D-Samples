@@ -16,7 +16,7 @@
 - `Screenshot/`
 - その他必要なファイル (engine / example を除く)
 
-を含め、`Samples/` 以下に追加する pull-request を送ってください。`Samples/Minesweeper` が参考になります。  
+を含め、`Samples/` 以下に追加する pull-request を送ってください。[`Samples/Minesweeper`](Samples/Minesweeper) が参考になります。  
 
 - 投稿はレビューののち採否を決定します
 - `Main.cpp` に収まる、数百行程度の完結した作品や、開発に役立つサンプルであることが好ましいです 
