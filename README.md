@@ -8,10 +8,12 @@
 - `README.md`
 - `Main.cpp`
 - `Screenshot/`
+- その他必要なファイル (engine / example を除く)
 
-を含めて pull-request で送ってください。`Samples/Minesweeper` が参考になります。  
-投稿された内容は CC0-1.0 license として扱います。
+を含め、`Samples/` 以下に追加する pull-request を送ってください。`Samples/Minesweeper` が参考になります。  
+投稿された内容は CC0-1.0 license として扱います。  
 
+## 一覧
 
 |    |
 |:--:|
