@@ -3,11 +3,15 @@
 
 ## 投稿方法
 
+ゲーム名のフォルダに
+
 - `README.md`
 - `Main.cpp`
 - `Screenshot/`
 
-を pull-request で送ってください。
+を含めて pull-request で送ってください。`Samples/Minesweeper` が参考になります。  
+投稿された内容は CC0-1.0 license として扱います。
+
 
 |    |
 |:--:|
