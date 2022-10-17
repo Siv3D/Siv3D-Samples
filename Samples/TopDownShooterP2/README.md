@@ -6,7 +6,6 @@
 | Affiliation   | Siv3D                                        |
 | Siv3D Version | v0.6.5                                       |
 | Platform      | Windows, macOS, Linux, Web                   |
-| Type          | 技術デモ                                     |
 
 ## 説明 | Description
 
@@ -25,3 +24,5 @@
 ![](Screenshot/1.png)
 
 ![](Screenshot/2.png)
+
+![](Screenshot/3.png)
