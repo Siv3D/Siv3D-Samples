@@ -5,7 +5,7 @@
 
 |    |    |
 |:--:|:--:|
-|<a href="Samples/Minesweeper"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Minesweeper/Screenshot/3.png" width="240px"></a> | <a href="Samples/Minesweeper"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/TopDownShooterP2/Screenshot/2.png" width="240px"></a> |
+|<a href="Samples/Minesweeper"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Minesweeper/Screenshot/3.png" width="240px"></a> | <a href="Samples/TopDownShooterP2"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/TopDownShooterP2/Screenshot/2.png" width="240px"></a> |
 | マインスイーパー | 見下ろし型 2D シューティング |
 | Minesweeper | Top-down 2D Shooter |
 
