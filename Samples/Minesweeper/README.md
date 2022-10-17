@@ -7,6 +7,10 @@
 | Siv3D Version | v0.6.5                                       |
 | Platform      | Windows, macOS, Linux, Web                   |
 
+## 説明 | Description
+
+数字の無いエリアを一気に開くために、Union-Find で島のグループ化をしています。
+
 ## 遊び方 | How to Play
 
 - クリックでマスを開いていきます。地雷 💣 の無いマスをすべて開くと勝利です

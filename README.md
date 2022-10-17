@@ -36,6 +36,10 @@
 | Siv3D Version | v0.6.5 ← 動作を確認した Siv3D バージョン              |
 | Platform      | Windows, macOS, Linux, Web のうち、動作を確認したもの |
 
+## 説明 | Description
+
+実装や技術に関する説明を書きます。
+
 ## 遊び方 | How to Play
 
 - 箇条書きで
