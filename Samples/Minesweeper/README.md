@@ -1,11 +1,11 @@
 # マインスイーパー | Minesweeper
 
-|              |                                              |
-|:-------------|:---------------------------------------------|
-|Author        | [Ryo Suzuki](https://twitter.com/Reputeless) |
-|Affiliation   | Siv3D                                        |
-|Siv3D Version | v0.6.5                                       |
-|Platform      | Windows, macOS, Linux, Web                   |
+|               |                                              |
+|:--------------|:---------------------------------------------|
+| Author        | [Ryo Suzuki](https://twitter.com/Reputeless) |
+| Affiliation   | Siv3D                                        |
+| Siv3D Version | v0.6.5                                       |
+| Platform      | Windows, macOS, Linux, Web                   |
 
 ## 遊び方 | How to Play
 
