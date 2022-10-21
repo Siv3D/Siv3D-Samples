@@ -24,7 +24,7 @@ void Main()
 
 				const Vec2 dir = (distance ? ((Cursor::PosF() - pos) / distance) : Vec2::Up());
 
-				pos += (dir * Pow(distance, exp) * 0.0005);
+				pos += (dir * Math::Pow(distance, exp) * 0.0005);
 
 				const Vec2 to = (pos + dir * 40);
 
