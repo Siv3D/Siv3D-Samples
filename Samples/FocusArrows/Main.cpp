@@ -2,7 +2,9 @@
 
 void Main()
 {
-	Window::Resize(1280, 720);
+	constexpr Size SceneSize{ 1280, 720 };
+
+	Window::Resize(SceneSize);
 
 	// 2D ⇔ 3D の切り替えトランジション
 	Transition transition{ 0.3s, 0.3s };
@@ -18,9 +20,9 @@ void Main()
 		// 加算ブレンド
 		const ScopedRenderStates2D bled{ BlendState::Additive };
 
-		for (int32 y = 0; y < (720 / 120 + 1); ++y)
+		for (int32 y = 0; y <= (SceneSize.y / 120); ++y)
 		{
-			for (int32 x = 0; x < (1280 / 120 + 1); ++x)
+			for (int32 x = 0; x <= (SceneSize.x / 120); ++x)
 			{
 				Vec2 pos{ (40 + x * 120), (y * 120) };
 
