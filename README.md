@@ -8,6 +8,12 @@
 | マインスイーパー | 見下ろし型 2D シューティング | カーソルを注目する矢印 |
 | Minesweeper | Top-down 2D Shooter | Focus Arrows |
 
+| <a href="Samples/TabSample"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/TabSample/Screenshot/2.png" width="250px"></a> |
+|:--:|
+| タブサンプル |
+| Tab Samples |
+
+
 ## 投稿方法
 
 ゲーム名のフォルダに
