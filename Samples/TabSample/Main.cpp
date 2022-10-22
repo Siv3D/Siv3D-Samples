@@ -344,7 +344,7 @@ void Main()
 {
 	Window::Resize(1280, 720);
 	const Font font{ FontMethod::MSDF, 48, Typeface::Heavy };
-	const Array<String> items = { U"ステータス", U"武器", U"聖遺物", U"命ノ星座", U"天賦", U"プロフィール" };
+	const Array<String> items = { U"ステータス", U"武器", U"装備", U"スキル", U"任務", U"プロフィール" };
 	constexpr ColorF TabColor{ 0.2, 0.5, 0.9 };
 	constexpr ColorF TabOutlineColor{ 0.5 };
 	constexpr ColorF ContentColor{ 0.5 };
