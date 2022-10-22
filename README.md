@@ -10,8 +10,8 @@
 
 | <a href="Samples/TabSample"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/TabSample/Screenshot/2.png" width="250px"></a> |
 |:--:|
-| タブサンプル |
-| Tab Samples |
+| タブ |
+| Tabs |
 
 
 ## 投稿方法
