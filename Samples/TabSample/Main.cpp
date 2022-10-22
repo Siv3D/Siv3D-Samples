@@ -94,7 +94,7 @@ public:
 	{
 		double posX = 0.0;
 
-		for (const auto& item : m_items)
+		for (size_t i = 0; i < items.size(); ++i)
 		{
 			m_tabPositions.emplace_back(posX, 0);
 
@@ -140,7 +140,7 @@ public:
 	{
 		double posX = 0.0;
 
-		for (const auto& item : m_items)
+		for (size_t i = 0; i < items.size(); ++i)
 		{
 			m_tabPositions.emplace_back(posX, 0);
 
@@ -251,11 +251,9 @@ public:
 		constexpr double Thickness = 3.0;
 		const double radius = (m_tabSize.y * 0.5);
 		const double smallRadius = (m_tabSize.y * 0.1);
-
-		const double leftX = pos.x;
 		const double width = ((m_items.size() - 1) * (m_tabSize.x - Thickness) + m_tabSize.x);
 
-		RectF{ pos.x, pos.y + 3, width, m_tabSize.y - 6}.stretched(-Thickness * 0.5).rounded(radius).drawFrame(Thickness, outlineColor);
+		RectF{ pos.x, pos.y + 3, width, m_tabSize.y - 6 }.stretched(-Thickness * 0.5).rounded(radius).drawFrame(Thickness, outlineColor);
 
 		for (size_t i = 0; i < m_items.size(); ++i)
 		{
@@ -299,8 +297,6 @@ public:
 		constexpr double Thickness = 3.0;
 		const double shear = (m_tabSize.y * 0.2);
 		const double radius = (m_tabSize.y * 0.5);
-
-		const double leftX = pos.x;
 		const double width = ((m_items.size() - 1) * (m_tabSize.x - Thickness) + m_tabSize.x);
 
 		RectF{ pos.x, pos.y + 3, width, m_tabSize.y - 6 }.stretched(-Thickness * 0.5).rounded(radius).drawFrame(Thickness, outlineColor);
