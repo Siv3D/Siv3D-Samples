@@ -374,75 +374,84 @@ struct Rich_board {
 ////////////////////////////////
 
 // 描画で使う定数
-#define BOARD_SIZE 400
 #define BOARD_COORD_SIZE 20
-#define DISC_SIZE 20
-#define LEGAL_SIZE 7
-#define STABLE_SIZE 4
-#define BOARD_CELL_FRAME_WIDTH 2
-#define BOARD_DOT_SIZE 5
 #define BOARD_ROUND_FRAME_WIDTH 10
-#define BOARD_ROUND_DIAMETER 20
-#define BOARD_SY 60
-constexpr int BOARD_SX = 20 + BOARD_COORD_SIZE;
-constexpr int BOARD_CELL_SIZE = BOARD_SIZE / 8;
+
+constexpr double BoardSize = 400;
+constexpr double CellSize = (BoardSize / 8);
 
 // ボードの描画
-void draw_board(Font font, Font font_bold, Rich_board board)
+void DrawBoard(const Rich_board& board, const Vec2& pos, const Font& labelFont)
 {
-	// 座標の文字を描画
-	String coord_x = U"abcdefgh";
-	for (int i = 0; i < 8; ++i) {
-		font_bold(i + 1).draw(15, Arg::center(BOARD_SX - BOARD_COORD_SIZE, BOARD_SY + BOARD_CELL_SIZE * i + BOARD_CELL_SIZE / 2), Color(51, 51, 51));
-		font_bold(coord_x[i]).draw(15, Arg::center(BOARD_SX + BOARD_CELL_SIZE * i + BOARD_CELL_SIZE / 2, BOARD_SY - BOARD_COORD_SIZE - 2), Color(51, 51, 51));
-	}
-	// グリッドを描画
-	for (int i = 0; i < 7; ++i) {
-		Line(BOARD_SX + BOARD_CELL_SIZE * (i + 1), BOARD_SY, BOARD_SX + BOARD_CELL_SIZE * (i + 1), BOARD_SY + BOARD_SIZE).draw(BOARD_CELL_FRAME_WIDTH, Color(51, 51, 51));
-		Line(BOARD_SX, BOARD_SY + BOARD_CELL_SIZE * (i + 1), BOARD_SX + BOARD_SIZE, BOARD_SY + BOARD_CELL_SIZE * (i + 1)).draw(BOARD_CELL_FRAME_WIDTH, Color(51, 51, 51));
-	}
-	//丸い模様を描画
-	Circle(BOARD_SX + 2 * BOARD_CELL_SIZE, BOARD_SY + 2 * BOARD_CELL_SIZE, BOARD_DOT_SIZE).draw(Color(51, 51, 51));
-	Circle(BOARD_SX + 2 * BOARD_CELL_SIZE, BOARD_SY + 6 * BOARD_CELL_SIZE, BOARD_DOT_SIZE).draw(Color(51, 51, 51));
-	Circle(BOARD_SX + 6 * BOARD_CELL_SIZE, BOARD_SY + 2 * BOARD_CELL_SIZE, BOARD_DOT_SIZE).draw(Color(51, 51, 51));
-	Circle(BOARD_SX + 6 * BOARD_CELL_SIZE, BOARD_SY + 6 * BOARD_CELL_SIZE, BOARD_DOT_SIZE).draw(Color(51, 51, 51));
-	// 外枠を描画
-	RoundRect(BOARD_SX, BOARD_SY, BOARD_SIZE, BOARD_SIZE, 20).drawFrame(0, 10, Palette::White);
-	// 石と合法手を描画
-	const Color colors[2] = { Palette::Black, Palette::White };
+	constexpr double GridThickness = 2;
+	constexpr double GridDotRadius = 5;
+	constexpr double DiskRadius = 20;
+	constexpr double LegalMarkRadius = 7;
+	constexpr ColorF LabelColor{ 0.2 };
+	constexpr ColorF GridColor{ 0.2 };
+	constexpr ColorF DiskColors[2] = { Palette::Black, Palette::White };
+	constexpr ColorF LegalMarkColor = Palette::Cyan;
 
-	const OthelloAI::BitBoard playerBitBoard = board.board.getPlayerBitBoard();
-	const OthelloAI::BitBoard opponentBitBoard = board.board.getOpponentBitBoard();
-	const OthelloAI::BitBoard legalBitBoard = board.board.getLegalBitBoard();
-
-	for (int32 cellIndex = 0; cellIndex < 64; ++cellIndex)
+	// 行・列ラベルを描画する
+	for (int32 i = 0; i < 8; ++i)
 	{
-		const int32 x = BOARD_SX + (cellIndex % 8) * BOARD_CELL_SIZE + BOARD_CELL_SIZE / 2;
-		const int32 y = BOARD_SY + (cellIndex / 8) * BOARD_CELL_SIZE + BOARD_CELL_SIZE / 2;
+		labelFont(i + 1).draw(15, Arg::center((pos.x - BOARD_COORD_SIZE), (pos.y + CellSize * i + CellSize / 2)), LabelColor);
+		labelFont(char32(U'a' + i)).draw(15, Arg::center((pos.x + CellSize * i + CellSize / 2), (pos.y - BOARD_COORD_SIZE - 2)), LabelColor);
+	}
 
-		if (OthelloAI::HasFlag(playerBitBoard, cellIndex))
+	// グリッドを描画する
+	for (int32 i = 0; i < 7; ++i)
+	{
+		Line{ pos.x + CellSize * (i + 1), pos.y, pos.x + CellSize * (i + 1), pos.y + BoardSize }.draw(GridThickness, GridColor);
+		Line{ pos.x, pos.y + CellSize * (i + 1), pos.x + BoardSize, pos.y + CellSize * (i + 1) }.draw(GridThickness, GridColor);
+	}
+
+	// グリッド上の丸い模様を描画する
+	{
+		Circle{ (pos.x + 2 * CellSize), (pos.y + 2 * CellSize), GridDotRadius }.draw(GridColor);
+		Circle{ (pos.x + 2 * CellSize), (pos.y + 6 * CellSize), GridDotRadius }.draw(GridColor);
+		Circle{ (pos.x + 6 * CellSize), (pos.y + 2 * CellSize), GridDotRadius }.draw(GridColor);
+		Circle{ (pos.x + 6 * CellSize), (pos.y + 6 * CellSize), GridDotRadius }.draw(GridColor);
+	}
+
+	// 外枠を描画する
+	RoundRect{ pos, BoardSize, BoardSize, 20 }.drawFrame(0, 10, Palette::White);
+
+	// 石と合法手を描画する
+	{
+		const OthelloAI::BitBoard playerBitBoard = board.board.getPlayerBitBoard();
+		const OthelloAI::BitBoard opponentBitBoard = board.board.getOpponentBitBoard();
+		const OthelloAI::BitBoard legalBitBoard = board.board.getLegalBitBoard();
+
+		for (int32 cellIndex = 0; cellIndex < 64; ++cellIndex)
 		{
-			Circle{ x, y, DISC_SIZE }.draw(colors[board.player]);
-		}
-		else if (OthelloAI::HasFlag(opponentBitBoard, cellIndex))
-		{
-			Circle{ x, y, DISC_SIZE }.draw(colors[board.player ^ 1]);
-		}
-		else if (OthelloAI::HasFlag(legalBitBoard, cellIndex))
-		{
-			Circle{ x, y, LEGAL_SIZE }.draw(Palette::Cyan);
+			const double x = pos.x + (cellIndex % 8) * CellSize + CellSize / 2;
+			const double y = pos.y + (cellIndex / 8) * CellSize + CellSize / 2;
+
+			if (OthelloAI::HasFlag(playerBitBoard, cellIndex))
+			{
+				Circle{ x, y, DiskRadius }.draw(DiskColors[board.player]);
+			}
+			else if (OthelloAI::HasFlag(opponentBitBoard, cellIndex))
+			{
+				Circle{ x, y, DiskRadius }.draw(DiskColors[board.player ^ 1]);
+			}
+			else if (OthelloAI::HasFlag(legalBitBoard, cellIndex))
+			{
+				Circle{ x, y, LegalMarkRadius }.draw(LegalMarkColor);
+			}
 		}
 	}
 }
 
 // 人間の手番でマスをクリックして着手する関数
-void interact_move(Rich_board* board) {
+void interact_move(Rich_board* board, const Vec2& pos) {
 	OthelloAI::BitBoard legal = board->board.getLegalBitBoard(); // 合法手生成
 	for (int_fast8_t cell = OthelloAI::first_bit(&legal); legal; cell = OthelloAI::next_bit(&legal)) // 合法手を走査
 	{
 		int x = (63 - cell) % 8; // ビットボードではh8が0だが、GUIではa1が0なので63 - cellにする
 		int y = (63 - cell) / 8;
-		Rect cell_rect(BOARD_SX + x * BOARD_CELL_SIZE, BOARD_SY + y * BOARD_CELL_SIZE, BOARD_CELL_SIZE, BOARD_CELL_SIZE);
+		RectF cell_rect(pos.x + x * CellSize, pos.y + y * CellSize, CellSize, CellSize);
 		if (cell_rect.leftClicked()) { // 合法手のマスをクリックされたら着手
 			board->move(cell);
 		}
@@ -479,16 +488,20 @@ void Main()
 	Window::SetTitle(U"シンプルなオセロAI");
 	Scene::SetBackground(Color(36, 153, 114));
 	const Font font{ FontMethod::MSDF, 50 };
-	const Font font_bold{ FontMethod::MSDF, 50, Typeface::Bold };
+	const Font boldFont{ FontMethod::MSDF, 50, Typeface::Bold };
 	Rich_board board;
 	double depth = 5;
 	int value = 0;
 	int ai_player = 1;
 	std::future<OthelloAI::AI_result> ai_future;
 
-	while (System::Update()) {
+	constexpr Vec2 BoardPos{ 40, 60 };
+
+	while (System::Update())
+	{
 		// 終了ボタンが押されたらAIを強制終了してからExitする
-		if (System::GetUserActions() & UserAction::CloseButtonClicked) {
+		if (System::GetUserActions() & UserAction::CloseButtonClicked)
+		{
 			stop_calculating(&ai_future);
 			System::Exit();
 		}
@@ -498,7 +511,7 @@ void Main()
 		const Transformer2D screenScaling{ Mat3x2::Scale(scale), TransformCursor::Yes };
 
 		// ボードの描画
-		draw_board(font, font_bold, board);
+		DrawBoard(board, BoardPos, boldFont);
 
 		// 着手する
 		if (!board.game_over) { // 終局していなかったら
@@ -506,12 +519,13 @@ void Main()
 				ai_move(&board, round(depth), &value, &ai_future);
 			}
 			else { // 人間の手番では人間が着手
-				interact_move(&board);
+				interact_move(&board, BoardPos);
 			}
 		}
 
 		// 設定などのGUI
 		SimpleGUI::Slider(U"先読み{}手"_fmt(round(depth)), depth, 1, 9, Vec2{ 470, 10 }, 150, 150); // 読み手数
+
 		// 対局開始
 		if (SimpleGUI::Button(U"AI先手(黒)で対局", Vec2(470, 60))) {
 			stop_calculating(&ai_future);
