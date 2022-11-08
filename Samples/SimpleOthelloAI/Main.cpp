@@ -2,13 +2,29 @@
 
 namespace OthelloAI
 {
+	// ビットボード
+	using BitBoard = uint64;
+
+	/// @brief セルのインデックス
+	/// @remark A1 が 0, B1 が 1, C1 が 2, ... H8 が 63 
+	using CellIndex = int32;
+
+	/// @brief ビットボード上の指定したセルにフラグが立っているかを返します。
+	/// @param bitBoard ビットボード
+	/// @param cellIndex セルのインデックス
+	/// @return フラグが立っている場合 true, それ以外の場合は false
+	constexpr bool HasFlag(BitBoard bitBoard, CellIndex cellIndex)
+	{
+		return static_cast<bool>(1 & (bitBoard >> (63 - cellIndex)));
+	}
+
 	// 計算を強制終了するときに使う
 	bool global_searching = true;
 
 	// 石を返すときに使う情報
 	struct Flip
 	{
-		uint64 flip; // 返る石(ビットボード)
+		BitBoard flip; // 返る石
 		uint_fast8_t pos; // 着手位置
 	};
 
@@ -19,13 +35,13 @@ namespace OthelloAI
 		x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL);
 		x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;
 		x = (x * 0x0101010101010101ULL) >> 56;
-		return x;
+		return static_cast<int32>(x);
 	}
 
 	// 2進数として数値を見て右端からいくつ0が連続しているか: Number of Training Zero
 	inline uint_fast8_t ntz(uint64* x)
 	{
-		return pop_count_ull((~(*x)) & ((*x) - 1));
+		return static_cast<uint_fast8_t>(pop_count_ull((~(*x)) & ((*x) - 1)));
 	}
 
 	// 立っているビットを走査するときにfor文で使うと便利
@@ -48,10 +64,6 @@ namespace OthelloAI
 
 		// スコアの絶対値の最大値
 		static constexpr int32 MaxScore = 64;
-
-		uint64 m_player; // その盤面から打つ手番
-
-		uint64 m_opponent; // その盤面で打たない手番
 
 		// 初期局面
 		void reset()
@@ -76,21 +88,6 @@ namespace OthelloAI
 			m_player ^= 1ULL << flip.pos;
 			m_player ^= flip.flip;
 			m_opponent ^= flip.flip;
-		}
-
-		// 合法手生成
-		uint64 get_legal()
-		{
-			uint64 res = 0ULL;
-			constexpr int32 shifts[8] = { 1, -1, 8, -8, 7, -7, 9, -9 };
-			constexpr uint64 masks[4] = { 0x7E7E7E7E7E7E7E7EULL, 0x00FFFFFFFFFFFF00ULL, 0x007E7E7E7E7E7E00ULL, 0x007E7E7E7E7E7E00ULL };
-
-			for (int32 i = 0; i < 8; ++i) // 縦横斜めの8方向それぞれ別に計算する
-			{
-				res |= get_legal_part(shifts[i], masks[i / 2]);
-			}
-
-			return res & ~(m_player | m_opponent); // 空きマスでマスクして返す
 		}
 
 		// 着手したときに返る石を求める
@@ -134,16 +131,71 @@ namespace OthelloAI
 			return std::max(-MaxScore, std::min(MaxScore, res)); // -64から+64までの範囲に収める
 		}
 
-		// 盤面の石数を数える(終局した場合に使う)
-		int32 get_score()
+		/// @brief 現在の手番のビットボードを返します。
+		/// @return 現在の手番のビットボード
+		[[nodiscard]]
+		BitBoard getPlayerBitBoard() const
 		{
-			int32 p = pop_count_ull(m_player);
-			int32 o = pop_count_ull(m_opponent);
-			int32 v = 64 - p - o;
-			return p > o ? p - o + v : p - o - v;
+			return m_player;
+		}
+
+		/// @brief 現在の手番でないほうのビットボードを返します。
+		/// @return 現在の手番でないほうのビットボード
+		[[nodiscard]]
+		BitBoard getOpponentBitBoard() const
+		{
+			return m_opponent;
+		}
+
+		/// @brief 現在の手番の合法手のビットボードで返します。
+		/// @return 現在の手番の合法手のビットボード
+		[[nodiscard]]
+		BitBoard getLegalBitBoard() const
+		{
+			constexpr int32 Shifts[8] = { 1, -1, 8, -8, 7, -7, 9, -9 };
+			constexpr uint64 Masks[4] = { 0x7E7E7E7E7E7E7E7EULL, 0x00FFFFFFFFFFFF00ULL, 0x007E7E7E7E7E7E00ULL, 0x007E7E7E7E7E7E00ULL };
+			BitBoard result = 0ULL;
+
+			// 縦横斜めの8方向それぞれ別に計算する
+			for (int32 i = 0; i < 8; ++i)
+			{
+				result |= get_legal_part(Shifts[i], Masks[i / 2]);
+			}
+
+			return (result & ~(m_player | m_opponent)); // 空きマスでマスクして返す
+		}
+
+		/// @brief 現在の手番の得点を返します。
+		/// @return 現在の手番の得点
+		[[nodiscard]]
+		int32 getPlayerScore() const
+		{
+			return pop_count_ull(m_player);
+		}
+
+		/// @brief 現在の手番でないほうの得点を返します。
+		/// @return 現在の手番でないほうの得点
+		[[nodiscard]]
+		int32 getOpponentScore() const
+		{
+			return pop_count_ull(m_opponent);
+		}
+
+		// 盤面の石数を数える(終局した場合に使う)
+		[[nodiscard]]
+		int32 get_score() const
+		{
+			const int32 p = getPlayerScore();
+			const int32 o = getOpponentScore();
+			const int32 v = (64 - p - o);
+			return ((p > o) ? (p - o + v) : (p - o - v));
 		}
 
 	private:
+
+		BitBoard m_player; // その盤面から打つ手番
+
+		BitBoard m_opponent; // その盤面で打たない手番
 
 		// 負のシフトと正のシフトを同一に扱う関数
 		static constexpr uint64 EnhancedShift(uint64 a, int32 b)
@@ -152,7 +204,7 @@ namespace OthelloAI
 		}
 
 		// 1方向について合法手を求める
-		uint64 get_legal_part(int32 shift, uint64 mask)
+		uint64 get_legal_part(int32 shift, uint64 mask) const
 		{
 			uint64 o = m_opponent & mask;
 			uint64 l = o & EnhancedShift(m_player, shift);
@@ -208,7 +260,7 @@ namespace OthelloAI
 			return board.evaluate();
 		}
 
-		uint64 legal = board.get_legal(); // 合法手生成
+		BitBoard legal = board.getLegalBitBoard(); // 合法手生成
 		if (legal == 0ULL) // パスの場合
 		{
 			if (passed) // 2回パスしたら終局
@@ -254,7 +306,7 @@ namespace OthelloAI
 	AI_result ai(Board board, int32 depth)
 	{
 		AI_result res = { -1, -Board::MaxScore - 1 };
-		uint64 legal = board.get_legal(); // 合法手生成
+		BitBoard legal = board.getLegalBitBoard(); // 合法手生成
 		int v;
 		Flip flip;
 		for (uint_fast8_t cell = first_bit(&legal); legal; cell = next_bit(&legal)) // 合法手を走査
@@ -306,10 +358,10 @@ struct Rich_board {
 		OthelloAI::Flip flip = board.get_flip(pos);
 		board.move(flip);
 		player ^= 1;
-		if (board.get_legal() == 0ULL) {
+		if (board.getLegalBitBoard() == 0ULL) {
 			board.pass();
 			player ^= 1;
-			if (board.get_legal() == 0ULL)
+			if (board.getLegalBitBoard() == 0ULL)
 				game_over = true;
 		}
 	}
@@ -336,7 +388,8 @@ constexpr int BOARD_SX = 20 + BOARD_COORD_SIZE;
 constexpr int BOARD_CELL_SIZE = BOARD_SIZE / 8;
 
 // ボードの描画
-void draw_board(Font font, Font font_bold, Rich_board board) {
+void draw_board(Font font, Font font_bold, Rich_board board)
+{
 	// 座標の文字を描画
 	String coord_x = U"abcdefgh";
 	for (int i = 0; i < 8; ++i) {
@@ -357,25 +410,34 @@ void draw_board(Font font, Font font_bold, Rich_board board) {
 	RoundRect(BOARD_SX, BOARD_SY, BOARD_SIZE, BOARD_SIZE, 20).drawFrame(0, 10, Palette::White);
 	// 石と合法手を描画
 	const Color colors[2] = { Palette::Black, Palette::White };
-	uint64 legal = board.board.get_legal();
-	for (int cell = 0; cell < 64; ++cell) {
-		int x = BOARD_SX + (cell % 8) * BOARD_CELL_SIZE + BOARD_CELL_SIZE / 2;
-		int y = BOARD_SY + (cell / 8) * BOARD_CELL_SIZE + BOARD_CELL_SIZE / 2;
-		if (1 & (board.board.m_player >> (63 - cell))) {
-			Circle(x, y, DISC_SIZE).draw(colors[board.player]);
+
+	const OthelloAI::BitBoard playerBitBoard = board.board.getPlayerBitBoard();
+	const OthelloAI::BitBoard opponentBitBoard = board.board.getOpponentBitBoard();
+	const OthelloAI::BitBoard legalBitBoard = board.board.getLegalBitBoard();
+
+	for (int32 cellIndex = 0; cellIndex < 64; ++cellIndex)
+	{
+		const int32 x = BOARD_SX + (cellIndex % 8) * BOARD_CELL_SIZE + BOARD_CELL_SIZE / 2;
+		const int32 y = BOARD_SY + (cellIndex / 8) * BOARD_CELL_SIZE + BOARD_CELL_SIZE / 2;
+
+		if (OthelloAI::HasFlag(playerBitBoard, cellIndex))
+		{
+			Circle{ x, y, DISC_SIZE }.draw(colors[board.player]);
 		}
-		else if (1 & (board.board.m_opponent >> (63 - cell))) {
-			Circle(x, y, DISC_SIZE).draw(colors[board.player ^ 1]);
+		else if (OthelloAI::HasFlag(opponentBitBoard, cellIndex))
+		{
+			Circle{ x, y, DISC_SIZE }.draw(colors[board.player ^ 1]);
 		}
-		else if (1 & (legal >> (63 - cell))) {
-			Circle(x, y, LEGAL_SIZE).draw(Palette::Cyan);
+		else if (OthelloAI::HasFlag(legalBitBoard, cellIndex))
+		{
+			Circle{ x, y, LEGAL_SIZE }.draw(Palette::Cyan);
 		}
 	}
 }
 
 // 人間の手番でマスをクリックして着手する関数
 void interact_move(Rich_board* board) {
-	uint64 legal = board->board.get_legal(); // 合法手生成
+	OthelloAI::BitBoard legal = board->board.getLegalBitBoard(); // 合法手生成
 	for (int_fast8_t cell = OthelloAI::first_bit(&legal); legal; cell = OthelloAI::next_bit(&legal)) // 合法手を走査
 	{
 		int x = (63 - cell) % 8; // ビットボードではh8が0だが、GUIではa1が0なので63 - cellにする
@@ -477,7 +539,7 @@ void Main()
 		}
 		else
 			font(U"終局").draw(20, Vec2{ 500, 140 });
-		int black_score = OthelloAI::pop_count_ull(board.board.m_player), white_score = OthelloAI::pop_count_ull(board.board.m_opponent);
+		int black_score = board.board.getPlayerScore(), white_score = board.board.getOpponentScore();
 		if (board.player == 1) // ボードには手番情報がないので、白番だったら石数を入れ替える
 			std::swap(black_score, white_score);
 		Circle(480, 230, 12).draw(Palette::Black);
