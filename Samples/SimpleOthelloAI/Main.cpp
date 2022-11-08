@@ -13,7 +13,7 @@ namespace OthelloAI
 	};
 
 	// 64ビット整数の1のビットの個数を数える
-	inline int32 pop_count_ull(uint64 x)
+	constexpr int32 pop_count_ull(uint64 x)
 	{
 		x = x - ((x >> 1) & 0x5555555555555555ULL);
 		x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL);
@@ -49,33 +49,33 @@ namespace OthelloAI
 		// スコアの絶対値の最大値
 		static constexpr int32 MaxScore = 64;
 
-		uint64 player; // その盤面から打つ手番
+		uint64 m_player; // その盤面から打つ手番
 
-		uint64 opponent; // その盤面で打たない手番
+		uint64 m_opponent; // その盤面で打たない手番
 
 		// 初期局面
 		void reset()
 		{
-			player = 0x0000000810000000ULL;
-			opponent = 0x0000001008000000ULL;
+			m_player = 0x0000000810000000ULL;
+			m_opponent = 0x0000001008000000ULL;
 		}
 
 		// 着手
 		void move(Flip flip)
 		{
-			player ^= flip.flip;
-			opponent ^= flip.flip;
-			player ^= 1ULL << flip.pos;
-			std::swap(player, opponent);
+			m_player ^= flip.flip;
+			m_opponent ^= flip.flip;
+			m_player ^= 1ULL << flip.pos;
+			std::swap(m_player, m_opponent);
 		}
 
 		// 着手を取り消し
 		void undo(Flip flip)
 		{
-			std::swap(player, opponent);
-			player ^= 1ULL << flip.pos;
-			player ^= flip.flip;
-			opponent ^= flip.flip;
+			std::swap(m_player, m_opponent);
+			m_player ^= 1ULL << flip.pos;
+			m_player ^= flip.flip;
+			m_opponent ^= flip.flip;
 		}
 
 		// 合法手生成
@@ -90,31 +90,30 @@ namespace OthelloAI
 				res |= get_legal_part(shifts[i], masks[i / 2]);
 			}
 
-			return res & ~(player | opponent); // 空きマスでマスクして返す
+			return res & ~(m_player | m_opponent); // 空きマスでマスクして返す
 		}
 
 		// 着手したときに返る石を求める
 		Flip get_flip(uint_fast8_t pos)
 		{
-			Flip res;
-			res.pos = pos;
-			res.flip = 0ULL;
-			uint64 x = 1ULL << pos;
-			constexpr int32 shifts[8] = { 1, -1, 8, -8, 7, -7, 9, -9 };
-			constexpr uint64 masks[4] = { 0x7E7E7E7E7E7E7E7EULL, 0x00FFFFFFFFFFFF00ULL, 0x007E7E7E7E7E7E00ULL, 0x007E7E7E7E7E7E00ULL };
+			constexpr int32 Shifts[8] = { 1, -1, 8, -8, 7, -7, 9, -9 };
+			constexpr uint64 Masks[4] = { 0x7E7E7E7E7E7E7E7EULL, 0x00FFFFFFFFFFFF00ULL, 0x007E7E7E7E7E7E00ULL, 0x007E7E7E7E7E7E00ULL };
+			const uint64 x = (1ULL << pos);
+			Flip result{ .flip = 0ULL, .pos = pos };
 
-			for (int32 i = 0; i < 8; ++i) // 縦横斜めの8方向それぞれ別に計算する
+			// 縦横斜めの8方向それぞれ別に計算する
+			for (int32 i = 0; i < 8; ++i)
 			{
-				res.flip |= get_flip_part(shifts[i], masks[i / 2], x);
+				result.flip |= get_flip_part(Shifts[i], Masks[i / 2], x);
 			}
 
-			return res;
+			return result;
 		}
 
 		// パス
 		void pass()
 		{
-			std::swap(player, opponent);
+			std::swap(m_player, m_opponent);
 		}
 
 		// 評価関数(終局していない場合に使う。マスの重みを使った評価で最終石差を推測する)
@@ -127,7 +126,7 @@ namespace OthelloAI
 
 			for (int32 i = 0; i < 10; ++i) // 盤面を10種類のマスに分けてそれぞれのマスに重みをつけたので、1種類ずつ計算
 			{
-				res += cell_weight_score[i] * (pop_count_ull(player & cell_weight_mask[i]) - pop_count_ull(opponent & cell_weight_mask[i]));
+				res += cell_weight_score[i] * (pop_count_ull(m_player & cell_weight_mask[i]) - pop_count_ull(m_opponent & cell_weight_mask[i]));
 			}
 
 			res += res > 0 ? 128 : (res < 0 ? -128 : 0);
@@ -138,8 +137,8 @@ namespace OthelloAI
 		// 盤面の石数を数える(終局した場合に使う)
 		int32 get_score()
 		{
-			int32 p = pop_count_ull(player);
-			int32 o = pop_count_ull(opponent);
+			int32 p = pop_count_ull(m_player);
+			int32 o = pop_count_ull(m_opponent);
 			int32 v = 64 - p - o;
 			return p > o ? p - o + v : p - o - v;
 		}
@@ -147,43 +146,38 @@ namespace OthelloAI
 	private:
 
 		// 負のシフトと正のシフトを同一に扱う関数
-		uint64 enhanced_shift(uint64 a, int32 b)
+		static constexpr uint64 EnhancedShift(uint64 a, int32 b)
 		{
-			if (b >= 0)
-			{
-				return a << b;
-			}
-
-			return a >> (-b);
+			return ((b >= 0) ? (a << b) : (a >> (-b)));
 		}
 
 		// 1方向について合法手を求める
 		uint64 get_legal_part(int32 shift, uint64 mask)
 		{
-			uint64 o = opponent & mask;
-			uint64 l = o & enhanced_shift(player, shift);
+			uint64 o = m_opponent & mask;
+			uint64 l = o & EnhancedShift(m_player, shift);
 
 			for (int32 i = 0; i < 5; ++i)
 			{
-				l |= o & enhanced_shift(l, shift);
+				l |= o & EnhancedShift(l, shift);
 			}
 
-			return enhanced_shift(l, shift);
+			return EnhancedShift(l, shift);
 		}
 
 		// 1方向について着手ｂによって返る石を求める
 		uint64 get_flip_part(int32 shift, uint64 mask, uint64 x)
 		{
-			uint64 o = opponent & mask;
-			uint64 f = enhanced_shift(x, shift) & o;
+			uint64 o = m_opponent & mask;
+			uint64 f = EnhancedShift(x, shift) & o;
 			uint64 nf;
 			bool flipped = false;
 
 			for (int32 i = 0; i < 8; ++i)
 			{
-				nf = enhanced_shift(f, shift);
+				nf = EnhancedShift(f, shift);
 
-				if (nf & player)
+				if (nf & m_player)
 				{
 					flipped = true;
 					break;
@@ -279,8 +273,10 @@ namespace OthelloAI
 	}
 
 	// AIの計算を強制終了
-	void stop_calculating(std::future<OthelloAI::AI_result>* ai_future) {
-		if (ai_future->valid()) {
+	void stop_calculating(std::future<OthelloAI::AI_result>* ai_future)
+	{
+		if (ai_future->valid())
+		{
 			global_searching = false;
 			ai_future->get();
 			global_searching = true;
@@ -365,10 +361,10 @@ void draw_board(Font font, Font font_bold, Rich_board board) {
 	for (int cell = 0; cell < 64; ++cell) {
 		int x = BOARD_SX + (cell % 8) * BOARD_CELL_SIZE + BOARD_CELL_SIZE / 2;
 		int y = BOARD_SY + (cell / 8) * BOARD_CELL_SIZE + BOARD_CELL_SIZE / 2;
-		if (1 & (board.board.player >> (63 - cell))) {
+		if (1 & (board.board.m_player >> (63 - cell))) {
 			Circle(x, y, DISC_SIZE).draw(colors[board.player]);
 		}
-		else if (1 & (board.board.opponent >> (63 - cell))) {
+		else if (1 & (board.board.m_opponent >> (63 - cell))) {
 			Circle(x, y, DISC_SIZE).draw(colors[board.player ^ 1]);
 		}
 		else if (1 & (legal >> (63 - cell))) {
@@ -481,7 +477,7 @@ void Main()
 		}
 		else
 			font(U"終局").draw(20, Vec2{ 500, 140 });
-		int black_score = OthelloAI::pop_count_ull(board.board.player), white_score = OthelloAI::pop_count_ull(board.board.opponent);
+		int black_score = OthelloAI::pop_count_ull(board.board.m_player), white_score = OthelloAI::pop_count_ull(board.board.m_opponent);
 		if (board.player == 1) // ボードには手番情報がないので、白番だったら石数を入れ替える
 			std::swap(black_score, white_score);
 		Circle(480, 230, 12).draw(Palette::Black);
