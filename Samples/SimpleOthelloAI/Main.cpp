@@ -334,38 +334,68 @@ namespace OthelloAI
 			global_searching = true;
 		}
 	}
-}
 
-// GUIで使うボード
-struct Rich_board {
-	OthelloAI::Board board; // ビットボード
-	int player; // Boardだけだと白番か黒番かわからないので手番情報が必要
-	bool game_over; // 終局しているかのフラグ
+	// GUIで使うボード
+	struct Game
+	{
+		Board board; // ビットボード
 
-	Rich_board() {
-		reset();
-	}
+		int32 player; // Boardだけだと白番か黒番かわからないので手番情報が必要
 
-	// ボードの初期化
-	void reset() {
-		board.reset();
-		player = 0;
-		game_over = false;
-	}
+		bool game_over; // 終局しているかのフラグ
 
-	// 着手と手番変更(終局チェックも同時に行う)
-	void move(uint_fast8_t pos) {
-		OthelloAI::Flip flip = board.get_flip(pos);
-		board.move(flip);
-		player ^= 1;
-		if (board.getLegalBitBoard() == 0ULL) {
-			board.pass();
-			player ^= 1;
-			if (board.getLegalBitBoard() == 0ULL)
-				game_over = true;
+		Game()
+		{
+			reset();
 		}
-	}
-};
+
+		// ボードの初期化
+		void reset()
+		{
+			board.reset();
+			player = 0;
+			game_over = false;
+		}
+
+		// 着手と手番変更(終局チェックも同時に行う)
+		void move(uint_fast8_t pos)
+		{
+			Flip flip = board.get_flip(pos);
+
+			board.move(flip);
+
+			player ^= 1;
+
+			if (board.getLegalBitBoard() == 0ULL)
+			{
+				board.pass();
+
+				player ^= 1;
+
+				if (board.getLegalBitBoard() == 0ULL)
+				{
+					game_over = true;
+				}
+			}
+		}
+
+		/// @brief 黒の得点を返します。
+		/// @return 黒の得点
+		[[nodiscard]]
+		int32 getBlackScore() const
+		{
+			return (player == 0) ? board.getPlayerScore() : board.getOpponentScore();
+		}
+
+		/// @brief 白の得点を返します。
+		/// @return 白の得点
+		[[nodiscard]]
+		int32 getWhiteScore() const
+		{
+			return (player == 0) ? board.getOpponentScore() : board.getPlayerScore();
+		}
+	};
+}
 
 ////////////////////////////////
 //
@@ -374,14 +404,11 @@ struct Rich_board {
 ////////////////////////////////
 
 // 描画で使う定数
-#define BOARD_COORD_SIZE 20
-#define BOARD_ROUND_FRAME_WIDTH 10
-
 constexpr double BoardSize = 400;
 constexpr double CellSize = (BoardSize / 8);
 
 // ボードの描画
-void DrawBoard(const Rich_board& board, const Vec2& pos, const Font& labelFont)
+void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFont)
 {
 	constexpr double GridThickness = 2;
 	constexpr double GridDotRadius = 5;
@@ -395,8 +422,8 @@ void DrawBoard(const Rich_board& board, const Vec2& pos, const Font& labelFont)
 	// 行・列ラベルを描画する
 	for (int32 i = 0; i < 8; ++i)
 	{
-		labelFont(i + 1).draw(15, Arg::center((pos.x - BOARD_COORD_SIZE), (pos.y + CellSize * i + CellSize / 2)), LabelColor);
-		labelFont(char32(U'a' + i)).draw(15, Arg::center((pos.x + CellSize * i + CellSize / 2), (pos.y - BOARD_COORD_SIZE - 2)), LabelColor);
+		labelFont(i + 1).draw(15, Arg::center((pos.x - 20), (pos.y + CellSize * i + CellSize / 2)), LabelColor);
+		labelFont(char32(U'a' + i)).draw(15, Arg::center((pos.x + CellSize * i + CellSize / 2), (pos.y - 20 - 2)), LabelColor);
 	}
 
 	// グリッドを描画する
@@ -419,9 +446,9 @@ void DrawBoard(const Rich_board& board, const Vec2& pos, const Font& labelFont)
 
 	// 石と合法手を描画する
 	{
-		const OthelloAI::BitBoard playerBitBoard = board.board.getPlayerBitBoard();
-		const OthelloAI::BitBoard opponentBitBoard = board.board.getOpponentBitBoard();
-		const OthelloAI::BitBoard legalBitBoard = board.board.getLegalBitBoard();
+		const OthelloAI::BitBoard playerBitBoard = game.board.getPlayerBitBoard();
+		const OthelloAI::BitBoard opponentBitBoard = game.board.getOpponentBitBoard();
+		const OthelloAI::BitBoard legalBitBoard = game.board.getLegalBitBoard();
 
 		for (int32 cellIndex = 0; cellIndex < 64; ++cellIndex)
 		{
@@ -430,11 +457,11 @@ void DrawBoard(const Rich_board& board, const Vec2& pos, const Font& labelFont)
 
 			if (OthelloAI::HasFlag(playerBitBoard, cellIndex))
 			{
-				Circle{ x, y, DiskRadius }.draw(DiskColors[board.player]);
+				Circle{ x, y, DiskRadius }.draw(DiskColors[game.player]);
 			}
 			else if (OthelloAI::HasFlag(opponentBitBoard, cellIndex))
 			{
-				Circle{ x, y, DiskRadius }.draw(DiskColors[board.player ^ 1]);
+				Circle{ x, y, DiskRadius }.draw(DiskColors[game.player ^ 1]);
 			}
 			else if (OthelloAI::HasFlag(legalBitBoard, cellIndex))
 			{
@@ -445,31 +472,39 @@ void DrawBoard(const Rich_board& board, const Vec2& pos, const Font& labelFont)
 }
 
 // 人間の手番でマスをクリックして着手する関数
-void interact_move(Rich_board* board, const Vec2& pos) {
-	OthelloAI::BitBoard legal = board->board.getLegalBitBoard(); // 合法手生成
-	for (int_fast8_t cell = OthelloAI::first_bit(&legal); legal; cell = OthelloAI::next_bit(&legal)) // 合法手を走査
+void UpdateManually(OthelloAI::Game& game, const Vec2& pos)
+{
+	// 現在の合法手
+	OthelloAI::BitBoard legal = game.board.getLegalBitBoard();
+
+	// 合法手を走査
+	for (int_fast8_t cell = OthelloAI::first_bit(&legal); legal; cell = OthelloAI::next_bit(&legal))
 	{
-		int x = (63 - cell) % 8; // ビットボードではh8が0だが、GUIではa1が0なので63 - cellにする
-		int y = (63 - cell) / 8;
-		RectF cell_rect(pos.x + x * CellSize, pos.y + y * CellSize, CellSize, CellSize);
-		if (cell_rect.leftClicked()) { // 合法手のマスをクリックされたら着手
-			board->move(cell);
+		const int32 x = ((63 - cell) % 8); // ビットボードではh8が0だが、GUIではa1が0なので63 - cellにする
+		const int32 y = ((63 - cell) / 8);
+
+		RectF cell_rect{ (pos.x + x * CellSize), (pos.y + y * CellSize), CellSize };
+
+		// 合法手のマスをクリックしたら着手
+		if (cell_rect.leftClicked())
+		{
+			game.move(cell);
 		}
 	}
 }
 
 // AIの手番でAIが着手する関数
-void ai_move(Rich_board* board, int32 depth, int* value, std::future<OthelloAI::AI_result>* ai_future)
+void ai_move(OthelloAI::Game* game, int32 depth, int* value, std::future<OthelloAI::AI_result>* ai_future)
 {
 	if (ai_future->valid()) { // すでにAIが計算している場合
 		if (ai_future->wait_for(std::chrono::seconds(0)) == std::future_status::ready) { // 計算が終了していたら結果を得て着手する
 			OthelloAI::AI_result result = ai_future->get();
 			*value = result.val;
-			board->move(result.pos);
+			game->move(result.pos);
 		}
 	}
 	else { // AIに別スレッドで計算させる
-		*ai_future = std::async(std::launch::async, OthelloAI::ai, board->board, depth);
+		*ai_future = std::async(std::launch::async, OthelloAI::ai, game->board, depth);
 	}
 }
 
@@ -485,11 +520,10 @@ void Main()
 	Window::Resize(window_size);
 	Window::SetStyle(WindowStyle::Sizable);
 	Scene::SetResizeMode(ResizeMode::Virtual);
-	Window::SetTitle(U"シンプルなオセロAI");
 	Scene::SetBackground(Color(36, 153, 114));
 	const Font font{ FontMethod::MSDF, 50 };
 	const Font boldFont{ FontMethod::MSDF, 50, Typeface::Bold };
-	Rich_board board;
+	OthelloAI::Game game;
 	double depth = 5;
 	int value = 0;
 	int ai_player = 1;
@@ -499,68 +533,86 @@ void Main()
 
 	while (System::Update())
 	{
-		// 終了ボタンが押されたらAIを強制終了してからExitする
-		if (System::GetUserActions() & UserAction::CloseButtonClicked)
+		////////////////////////////////
+		//
+		//	状態の更新
+		//
+		////////////////////////////////
 		{
-			stop_calculating(&ai_future);
-			System::Exit();
-		}
-
-		// 画面サイズが変わったときに綺麗に描画する
-		const double scale = CalculateScale(window_size, Scene::Size());
-		const Transformer2D screenScaling{ Mat3x2::Scale(scale), TransformCursor::Yes };
-
-		// ボードの描画
-		DrawBoard(board, BoardPos, boldFont);
-
-		// 着手する
-		if (!board.game_over) { // 終局していなかったら
-			if (board.player == ai_player) { // AIの手番ではAIが着手
-				ai_move(&board, round(depth), &value, &ai_future);
+			// 終了ボタンが押されたらAIを強制終了してからExitする
+			if (System::GetUserActions() & UserAction::CloseButtonClicked)
+			{
+				stop_calculating(&ai_future);
+				System::Exit();
 			}
-			else { // 人間の手番では人間が着手
-				interact_move(&board, BoardPos);
+
+			// 終局していなければ
+			if (not game.game_over)
+			{
+				if (game.player == ai_player)
+				{
+					// AI による着手
+					ai_move(&game, round(depth), &value, &ai_future);
+				}
+				else
+				{
+					// 人間による着手
+					UpdateManually(game, BoardPos);
+				}
 			}
 		}
 
-		// 設定などのGUI
-		SimpleGUI::Slider(U"先読み{}手"_fmt(round(depth)), depth, 1, 9, Vec2{ 470, 10 }, 150, 150); // 読み手数
+		////////////////////////////////
+		//
+		//	描画
+		//
+		////////////////////////////////
+		{
+			// 画面サイズが変わったときに綺麗に描画する
+			const double scale = CalculateScale(window_size, Scene::Size());
+			const Transformer2D screenScaling{ Mat3x2::Scale(scale), TransformCursor::Yes };
 
-		// 対局開始
-		if (SimpleGUI::Button(U"AI先手(黒)で対局", Vec2(470, 60))) {
-			stop_calculating(&ai_future);
-			board.reset();
-			ai_player = 0;
-		}
-		else if (SimpleGUI::Button(U"AI後手(白)で対局", Vec2(470, 100))) {
-			stop_calculating(&ai_future);
-			board.reset();
-			ai_player = 1;
-		}
+			// ボードを描画する
+			DrawBoard(game, BoardPos, boldFont);
 
-		// 対局情報の表示
-		if (!board.game_over) {
-			if (board.player == 0)
-				font(U"黒番").draw(20, Vec2{ 470, 140 });
+			// 難易度設定
+			SimpleGUI::Slider(U"先読み {} 手"_fmt(round(depth)), depth, 1, 9, Vec2{ 470, 10 }, 150, 150); // 読み手数
+
+			// 対局開始ボタン
+			if (SimpleGUI::Button(U"後手（白）で対局", Vec2{ 470, 60 }))
+			{
+				stop_calculating(&ai_future);
+				game.reset();
+				ai_player = 0;
+			}
+			else if (SimpleGUI::Button(U"先手（黒）で対局", Vec2{ 470, 100 }))
+			{
+				stop_calculating(&ai_future);
+				game.reset();
+				ai_player = 1;
+			}
+
+			// 手番を表示する
+			if (not game.game_over)
+			{
+				font((game.player == 0) ? U"黒番" : U"白番").draw(20, Vec2{ 470, 140 });
+				font((game.player == ai_player) ? U"AI の手番" : U"あなたの手番").draw(20, Vec2{ 470, 180 });
+			}
 			else
-				font(U"白番").draw(20, Vec2{ 470, 140 });
-			if (board.player == ai_player) {
-				font(U"AIの手番").draw(20, Vec2{ 470, 180 });
+			{
+				font(U"終局").draw(20, Vec2{ 500, 140 });
 			}
-			else if (board.player == 1 - ai_player) {
-				font(U"あなたの手番").draw(20, Vec2{ 470, 180 });
+		
+			// 得点を表示する
+			{
+				Circle{ 480, 230, 12 }.draw(Palette::Black);
+				Circle{ 600, 230, 12 }.draw(Palette::White);
+				Line{ 540, 218, 540, 242 }.draw(2, ColorF{ 0.2 });
+				font(game.getBlackScore()).draw(20, Arg::leftCenter(500, 230));
+				font(game.getWhiteScore()).draw(20, Arg::rightCenter(580, 230));
 			}
+
+			font(U"評価値: {}"_fmt(value)).draw(20, Vec2{ 470, 260 });
 		}
-		else
-			font(U"終局").draw(20, Vec2{ 500, 140 });
-		int black_score = board.board.getPlayerScore(), white_score = board.board.getOpponentScore();
-		if (board.player == 1) // ボードには手番情報がないので、白番だったら石数を入れ替える
-			std::swap(black_score, white_score);
-		Circle(480, 230, 12).draw(Palette::Black);
-		Circle(600, 230, 12).draw(Palette::White);
-		font(black_score).draw(20, Arg::leftCenter(500, 230));
-		font(white_score).draw(20, Arg::rightCenter(580, 230));
-		Line(540, 218, 540, 242).draw(2, Color(51, 51, 51));
-		font(U"評価値: {}"_fmt(value)).draw(20, Vec2{ 470, 260 });
 	}
 }
