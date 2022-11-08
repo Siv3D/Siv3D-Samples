@@ -1,8 +1,6 @@
-﻿# include <Siv3D.hpp> // OpenSiv3D v0.6.5
+# include <Siv3D.hpp> // OpenSiv3D v0.6.5
 
 /*** ここからAI部分 ***/
-
-#define SCORE_MAX 64 // スコアの絶対値の最大値
 
 // 64ビット整数の1のビットの個数を数える
 inline int pop_count_ull(uint64_t x) {
@@ -28,6 +26,10 @@ struct Flip {
 // ビットボード
 class Board {
 public:
+
+	// スコアの絶対値の最大値
+	static constexpr int32 MaxScore = 64;
+
 	uint64_t player; // その盤面から打つ手番
 	uint64_t opponent; // その盤面で打たない手番
 
@@ -85,14 +87,14 @@ public:
 	// 評価関数(終局していない場合に使う。マスの重みを使った評価で最終石差を推測する)
 	int evaluate() {
 		constexpr int cell_weight_score[10] = { 2714, 147, 69, -18, -577, -186, -153, -379, -122, -169 };
-		constexpr uint64_t cell_weight_mask[10] = {0x8100000000000081ULL, 0x4281000000008142ULL, 0x2400810000810024ULL, 0x1800008181000018ULL, 0x0042000000004200ULL, 
-			0x0024420000422400ULL, 0x0018004242001800ULL, 0x0000240000240000ULL, 0x0000182424180000ULL, 0x0000001818000000ULL};
+		constexpr uint64_t cell_weight_mask[10] = { 0x8100000000000081ULL, 0x4281000000008142ULL, 0x2400810000810024ULL, 0x1800008181000018ULL, 0x0042000000004200ULL,
+			0x0024420000422400ULL, 0x0018004242001800ULL, 0x0000240000240000ULL, 0x0000182424180000ULL, 0x0000001818000000ULL };
 		int res = 0;
 		for (int i = 0; i < 10; ++i) // 盤面を10種類のマスに分けてそれぞれのマスに重みをつけたので、1種類ずつ計算
 			res += cell_weight_score[i] * (pop_count_ull(player & cell_weight_mask[i]) - pop_count_ull(opponent & cell_weight_mask[i]));
 		res += res > 0 ? 128 : (res < 0 ? -128 : 0);
 		res /= 256; // 最終石差の256倍を学習データにしたので、256で割って実際の最終石差の情報にする
-		return std::max(-SCORE_MAX, std::min(SCORE_MAX, res)); // -64から+64までの範囲に収める
+		return std::max(-MaxScore, std::min(MaxScore, res)); // -64から+64までの範囲に収める
 	}
 
 	// 盤面の石数を数える(終局した場合に使う)
@@ -192,7 +194,7 @@ bool global_searching = true;
 // AIの根幹部分。Nega-Alpha法
 int nega_alpha(Board board, int depth, int alpha, int beta, bool passed) {
 	if (!global_searching) // 強制終了
-		return -SCORE_MAX;
+		return -Board::MaxScore;
 	if (depth <= 0) // 探索終了
 		return board.evaluate();
 	uint64_t legal = board.get_legal(); // 合法手生成
@@ -216,14 +218,14 @@ int nega_alpha(Board board, int depth, int alpha, int beta, bool passed) {
 
 // nega_alphaだけだと評価値を求めることしかできないので、この関数で実際に打つ手を選ぶ。
 AI_result ai(Board board, int depth) {
-	AI_result res = { -1, -SCORE_MAX - 1 };
+	AI_result res = { -1, -Board::MaxScore - 1 };
 	uint64_t legal = board.get_legal(); // 合法手生成
 	int v;
 	Flip flip;
 	for (uint_fast8_t cell = first_bit(&legal); legal; cell = next_bit(&legal)) { // 合法手を走査
 		flip = board.get_flip(cell); // 返る石を求める
 		board.move(flip); // 着手
-		v = -nega_alpha(board, depth - 1, -SCORE_MAX, -res.val, false); // 評価値を求める
+		v = -nega_alpha(board, depth - 1, -Board::MaxScore, -res.val, false); // 評価値を求める
 		board.undo(flip); // 着手を取り消す
 		if (res.val < v) { // これまで見た評価値よりも良い評価値なら値を更新
 			res.pos = cell;
@@ -290,7 +292,7 @@ void draw_board(Font font, Font font_bold, Rich_board board) {
 }
 
 // 人間の手番でマスをクリックして着手する関数
-void interact_move(Rich_board *board) {
+void interact_move(Rich_board* board) {
 	uint64_t legal = board->board.get_legal(); // 合法手生成
 	for (int_fast8_t cell = first_bit(&legal); legal; cell = next_bit(&legal)) { // 合法手を走査
 		int x = (63 - cell) % 8; // ビットボードではh8が0だが、GUIではa1が0なので63 - cellにする
@@ -303,7 +305,7 @@ void interact_move(Rich_board *board) {
 }
 
 // AIの手番でAIが着手する関数
-void ai_move(Rich_board* board, int depth, int *value, std::future<AI_result> *ai_future) {
+void ai_move(Rich_board* board, int depth, int* value, std::future<AI_result>* ai_future) {
 	if (ai_future->valid()) { // すでにAIが計算している場合
 		if (ai_future->wait_for(std::chrono::seconds(0)) == std::future_status::ready) { // 計算が終了していたら結果を得て着手する
 			AI_result result = ai_future->get();
@@ -322,7 +324,7 @@ double CalculateScale(const Vec2& baseSize, const Vec2& currentSize) {
 }
 
 // AIの計算を強制終了
-void stop_calculating(std::future<AI_result> *ai_future) {
+void stop_calculating(std::future<AI_result>* ai_future) {
 	if (ai_future->valid()) {
 		global_searching = false;
 		ai_future->get();
@@ -410,6 +412,6 @@ void Main() {
 		font(black_score).draw(20, Arg::leftCenter(500, 230));
 		font(white_score).draw(20, Arg::rightCenter(580, 230));
 		Line(540, 218, 540, 242).draw(2, Color(51, 51, 51));
-		font(U"評価値: {}"_fmt(value)).draw(20, Vec2{470, 260});
+		font(U"評価値: {}"_fmt(value)).draw(20, Vec2{ 470, 260 });
 	}
 }
