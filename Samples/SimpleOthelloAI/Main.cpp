@@ -18,14 +18,17 @@ namespace OthelloAI
 		return static_cast<bool>(1 & (bitBoard >> (63 - cellIndex)));
 	}
 
-	// 計算を強制終了するときに使う
+	// AI 非同期タスクの中断フラグ
 	std::atomic<bool> g_abort = false;
 
 	// 石を返すときに使う情報
 	struct Flip
 	{
-		BitBoard flip; // 返る石
-		uint_fast8_t pos; // 着手位置
+		// 返る石
+		BitBoard flip;
+
+		// 着手位置
+		uint8 pos;
 	};
 
 	// 64ビット整数の1のビットの個数を数える
@@ -91,7 +94,7 @@ namespace OthelloAI
 		}
 
 		// 着手したときに返る石を求める
-		Flip get_flip(uint_fast8_t pos)
+		Flip getFlip(uint8 pos)
 		{
 			constexpr int32 Shifts[8] = { 1, -1, 8, -8, 7, -7, 9, -9 };
 			constexpr uint64 Masks[4] = { 0x7E7E7E7E7E7E7E7EULL, 0x00FFFFFFFFFFFF00ULL, 0x007E7E7E7E7E7E00ULL, 0x007E7E7E7E7E7E00ULL };
@@ -277,7 +280,7 @@ namespace OthelloAI
 
 		for (uint_fast8_t cell = first_bit(&legal); legal; cell = next_bit(&legal)) // 合法手を走査
 		{
-			flip = board.get_flip(cell); // 返る石を計算
+			flip = board.getFlip(cell); // 返る石を計算
 
 			board.move(flip); // 着手する
 
@@ -299,7 +302,7 @@ namespace OthelloAI
 	{
 		int32 pos; // 選んだ手(h8が0、g8が1、f8が2、、、、a1が63)
 
-		int32 val; // 評価値(AI目線) 最終石差を表す。
+		int32 value; // 評価値(AI目線) 最終石差を表す。
 	};
 
 	// nega_alphaだけだと評価値を求めることしかできないので、この関数で実際に打つ手を選ぶ。
@@ -311,20 +314,21 @@ namespace OthelloAI
 		Flip flip;
 		for (uint_fast8_t cell = first_bit(&legal); legal; cell = next_bit(&legal)) // 合法手を走査
 		{
-			flip = board.get_flip(cell); // 返る石を求める
+			flip = board.getFlip(cell); // 返る石を求める
 			board.move(flip); // 着手
-			v = -nega_alpha(board, depth - 1, -Board::MaxScore, -res.val, false); // 評価値を求める
+			v = -nega_alpha(board, depth - 1, -Board::MaxScore, -res.value, false); // 評価値を求める
 			board.undo(flip); // 着手を取り消す
-			if (res.val < v) // これまで見た評価値よりも良い評価値なら値を更新
+			if (res.value < v) // これまで見た評価値よりも良い評価値なら値を更新
 			{
 				res.pos = cell;
-				res.val = v;
+				res.value = v;
 			}
 		}
 		return res;
 	}
 
-	// AI の計算を強制終了
+	/// @brief AI の非同期タスクを終了させます。
+	/// @param task 非同期タスク
 	void AbortTask(AsyncTask<OthelloAI::AI_result>& task)
 	{
 		if (task.isValid())
@@ -338,13 +342,13 @@ namespace OthelloAI
 	}
 
 	// GUIで使うボード
-	struct Game
+	class Game
 	{
+	public:
+
 		Board board; // ビットボード
 
 		int32 player; // Boardだけだと白番か黒番かわからないので手番情報が必要
-
-		bool game_over; // 終局しているかのフラグ
 
 		Game()
 		{
@@ -355,30 +359,41 @@ namespace OthelloAI
 		void reset()
 		{
 			board.reset();
+
 			player = 0;
-			game_over = false;
+
+			m_gameOver = false;
 		}
 
-		// 着手と手番変更(終局チェックも同時に行う)
-		void move(uint_fast8_t pos)
+		// 着手と手番の更新
+		void move(uint8 pos)
 		{
-			Flip flip = board.get_flip(pos);
-
-			board.move(flip);
+			board.move(board.getFlip(pos));
 
 			player ^= 1;
 
+			// 合法手が無い場合は
 			if (board.getLegalBitBoard() == 0ULL)
 			{
+				// パスして手番を変更する
 				board.pass();
-
 				player ^= 1;
 
+				// それでも合法手が無い場合は
 				if (board.getLegalBitBoard() == 0ULL)
 				{
-					game_over = true;
+					// 終局
+					m_gameOver = true;
 				}
 			}
+		}
+
+		/// @brief 終局しているかを返します。
+		/// @return 終局している場合は true, それ以外の場合は false
+		[[nodiscard]]
+		bool isOver() const
+		{
+			return m_gameOver;
 		}
 
 		/// @brief 黒の得点を返します。
@@ -386,7 +401,7 @@ namespace OthelloAI
 		[[nodiscard]]
 		int32 getBlackScore() const
 		{
-			return (player == 0) ? board.getPlayerScore() : board.getOpponentScore();
+			return ((player == 0) ? board.getPlayerScore() : board.getOpponentScore());
 		}
 
 		/// @brief 白の得点を返します。
@@ -394,8 +409,13 @@ namespace OthelloAI
 		[[nodiscard]]
 		int32 getWhiteScore() const
 		{
-			return (player == 0) ? board.getOpponentScore() : board.getPlayerScore();
+			return ((player == 0) ? board.getOpponentScore() : board.getPlayerScore());
 		}
+
+	private:
+
+		// 終局しているか
+		bool m_gameOver = false;
 	};
 }
 
@@ -429,10 +449,10 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 	}
 
 	// グリッドを描画する
-	for (int32 i = 0; i < 7; ++i)
+	for (int32 i = 0; i <= 8; ++i)
 	{
-		Line{ pos.x + CellSize * (i + 1), pos.y, pos.x + CellSize * (i + 1), pos.y + BoardSize }.draw(GridThickness, GridColor);
-		Line{ pos.x, pos.y + CellSize * (i + 1), pos.x + BoardSize, pos.y + CellSize * (i + 1) }.draw(GridThickness, GridColor);
+		Line{ pos.x + CellSize * i, pos.y, pos.x + CellSize * i, pos.y + BoardSize }.draw(GridThickness, GridColor);
+		Line{ pos.x, pos.y + CellSize * i, pos.x + BoardSize, pos.y + CellSize * i }.draw(GridThickness, GridColor);
 	}
 
 	// グリッド上の丸い模様を描画する
@@ -442,9 +462,6 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 		Circle{ (pos.x + 6 * CellSize), (pos.y + 2 * CellSize), GridDotRadius }.draw(GridColor);
 		Circle{ (pos.x + 6 * CellSize), (pos.y + 6 * CellSize), GridDotRadius }.draw(GridColor);
 	}
-
-	// 外枠を描画する
-	RoundRect{ pos, BoardSize, BoardSize, 20 }.drawFrame(0, 10, Palette::White);
 
 	// 石と合法手を描画する
 	{
@@ -496,47 +513,45 @@ void UpdateManually(OthelloAI::Game& game, const Vec2& pos)
 }
 
 // AI の手番で AI が着手する関数
-void UpdateAI(OthelloAI::Game& game, int32 depth, int* value, AsyncTask<OthelloAI::AI_result>& task)
+void UpdateAI(OthelloAI::Game& game, int32 depth, int32& value, AsyncTask<OthelloAI::AI_result>& task)
 {
-	if (task.isValid()) // すでにAIが計算している場合
+	// AI スレッドが未開始の場合は
+	if (not task.isValid())
 	{
-		if (task.isReady()) // 計算が終了していたら結果を得て着手する
-		{
-			const OthelloAI::AI_result result = task.get();
-
-			*value = result.val;
-
-			game.move(result.pos);
-		}
-	}
-	else // AIに別スレッドで計算させる
-	{
+		// AI スレッドを開始する
 		task = Async(OthelloAI::ai, game.board, depth);
 	}
-}
 
-// 画面の大きさを変えたときに綺麗に描画するために必要
-double CalculateScale(const Vec2& baseSize, const Vec2& currentSize) {
-	return Min((currentSize.x / baseSize.x), (currentSize.y / baseSize.y));
+	// AI スレッドが計算完了した場合は
+	if (task.isReady())
+	{
+		const OthelloAI::AI_result result = task.get();
+
+		value = result.value;
+
+		// AI による着手
+		game.move(result.pos);
+	}
 }
 
 void Main()
 {
-	System::SetTerminationTriggers(UserAction::NoAction);
-	Size window_size = Size(800, 500);
-	Window::Resize(window_size);
-	Window::SetStyle(WindowStyle::Sizable);
-	Scene::SetResizeMode(ResizeMode::Virtual);
-	Scene::SetBackground(Color(36, 153, 114));
+	// 先読み手数（大きいと処理に時間がかかるが強くなる。1 ～ 9 が目安）
+	constexpr int32 Depth = 5;
+
+	constexpr Vec2 BoardPos{ 40, 40 };
+
 	const Font font{ FontMethod::MSDF, 50, Typeface::Bold };
+
+	Scene::SetBackground(Color(36, 153, 114));
+
 	OthelloAI::Game game;
-	double depth = 5;
-	int value = 0;
-	int ai_player = 1;
+
+	int32 value = 0;
+
+	int32 ai_player = 1;
 
 	AsyncTask<OthelloAI::AI_result> task;
-
-	constexpr Vec2 BoardPos{ 40, 60 };
 
 	while (System::Update())
 	{
@@ -546,20 +561,13 @@ void Main()
 		//
 		////////////////////////////////
 		{
-			// 終了ボタンが押されたらAIを強制終了してからExitする
-			if (System::GetUserActions() & UserAction::CloseButtonClicked)
-			{
-				AbortTask(task);
-				System::Exit();
-			}
-
 			// 終局していなければ
-			if (not game.game_over)
+			if (not game.isOver())
 			{
 				if (game.player == ai_player)
 				{
 					// AI による着手
-					UpdateAI(game, static_cast<int32>(Math::Round(depth)), &value, task);
+					UpdateAI(game, Depth, value, task);
 				}
 				else
 				{
@@ -575,32 +583,28 @@ void Main()
 		//
 		////////////////////////////////
 		{
-			// 画面サイズが変わったときに綺麗に描画する
-			const double scale = CalculateScale(window_size, Scene::Size());
-			const Transformer2D screenScaling{ Mat3x2::Scale(scale), TransformCursor::Yes };
-
-			// ボードを描画する
+			// ボード
 			DrawBoard(game, BoardPos, font);
 
-			// 難易度設定
-			SimpleGUI::Slider(U"先読み {} 手"_fmt(static_cast<int32>(Math::Round(depth))), depth, 1, 9, Vec2{ 470, 10 }, 150, 150); // 読み手数
-
 			// 対局開始ボタン
-			if (SimpleGUI::Button(U"後手（白）で対局", Vec2{ 470, 60 }))
 			{
-				AbortTask(task);
-				game.reset();
-				ai_player = 0;
-			}
-			else if (SimpleGUI::Button(U"先手（黒）で対局", Vec2{ 470, 100 }))
-			{
-				AbortTask(task);
-				game.reset();
-				ai_player = 1;
+				if (SimpleGUI::Button(U"先手（黒）で対局開始", Vec2{ 470, 40 }))
+				{
+					AbortTask(task);
+					game.reset();
+					ai_player = 1;
+				}
+
+				if (SimpleGUI::Button(U"後手（白）で対局開始", Vec2{ 470, 80 }))
+				{
+					AbortTask(task);
+					game.reset();
+					ai_player = 0;
+				}
 			}
 
-			// 手番を表示する
-			if (not game.game_over)
+			// 手番の表示
+			if (not game.isOver())
 			{
 				font((game.player == 0) ? U"黒番" : U"白番").draw(20, Vec2{ 470, 140 });
 				font((game.player == ai_player) ? U"AI の手番" : U"あなたの手番").draw(20, Vec2{ 470, 180 });
@@ -610,7 +614,7 @@ void Main()
 				font(U"終局").draw(20, Vec2{ 500, 140 });
 			}
 		
-			// 得点を表示する
+			// 得点の表示
 			{
 				Circle{ 480, 230, 12 }.draw(Palette::Black);
 				Circle{ 600, 230, 12 }.draw(Palette::White);
@@ -622,4 +626,6 @@ void Main()
 			font(U"評価値: {}"_fmt(value)).draw(20, Vec2{ 470, 260 });
 		}
 	}
+
+	AbortTask(task);
 }
