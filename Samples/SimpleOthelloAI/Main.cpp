@@ -19,7 +19,7 @@ namespace OthelloAI
 	}
 
 	// 計算を強制終了するときに使う
-	bool global_searching = true;
+	std::atomic<bool> g_abort = false;
 
 	// 石を返すときに使う情報
 	struct Flip
@@ -250,7 +250,7 @@ namespace OthelloAI
 	// AIの根幹部分。Nega-Alpha法
 	int32 nega_alpha(Board board, int32 depth, int32 alpha, int32 beta, bool passed)
 	{
-		if (!global_searching) // 強制終了
+		if (g_abort) // 強制終了
 		{
 			return -Board::MaxScore;
 		}
@@ -324,14 +324,16 @@ namespace OthelloAI
 		return res;
 	}
 
-	// AIの計算を強制終了
-	void stop_calculating(std::future<OthelloAI::AI_result>* ai_future)
+	// AI の計算を強制終了
+	void AbortTask(AsyncTask<OthelloAI::AI_result>& task)
 	{
-		if (ai_future->valid())
+		if (task.isValid())
 		{
-			global_searching = false;
-			ai_future->get();
-			global_searching = true;
+			g_abort = true;
+
+			task.get();
+
+			g_abort = false;
 		}
 	}
 
@@ -478,7 +480,7 @@ void UpdateManually(OthelloAI::Game& game, const Vec2& pos)
 	OthelloAI::BitBoard legal = game.board.getLegalBitBoard();
 
 	// 合法手を走査
-	for (int_fast8_t cell = OthelloAI::first_bit(&legal); legal; cell = OthelloAI::next_bit(&legal))
+	for (auto cell = OthelloAI::first_bit(&legal); legal; cell = OthelloAI::next_bit(&legal))
 	{
 		const int32 x = ((63 - cell) % 8); // ビットボードではh8が0だが、GUIではa1が0なので63 - cellにする
 		const int32 y = ((63 - cell) / 8);
@@ -493,18 +495,23 @@ void UpdateManually(OthelloAI::Game& game, const Vec2& pos)
 	}
 }
 
-// AIの手番でAIが着手する関数
-void ai_move(OthelloAI::Game* game, int32 depth, int* value, std::future<OthelloAI::AI_result>* ai_future)
+// AI の手番で AI が着手する関数
+void UpdateAI(OthelloAI::Game& game, int32 depth, int* value, AsyncTask<OthelloAI::AI_result>& task)
 {
-	if (ai_future->valid()) { // すでにAIが計算している場合
-		if (ai_future->wait_for(std::chrono::seconds(0)) == std::future_status::ready) { // 計算が終了していたら結果を得て着手する
-			OthelloAI::AI_result result = ai_future->get();
+	if (task.isValid()) // すでにAIが計算している場合
+	{
+		if (task.isReady()) // 計算が終了していたら結果を得て着手する
+		{
+			const OthelloAI::AI_result result = task.get();
+
 			*value = result.val;
-			game->move(result.pos);
+
+			game.move(result.pos);
 		}
 	}
-	else { // AIに別スレッドで計算させる
-		*ai_future = std::async(std::launch::async, OthelloAI::ai, game->board, depth);
+	else // AIに別スレッドで計算させる
+	{
+		task = Async(OthelloAI::ai, game.board, depth);
 	}
 }
 
@@ -521,13 +528,13 @@ void Main()
 	Window::SetStyle(WindowStyle::Sizable);
 	Scene::SetResizeMode(ResizeMode::Virtual);
 	Scene::SetBackground(Color(36, 153, 114));
-	const Font font{ FontMethod::MSDF, 50 };
-	const Font boldFont{ FontMethod::MSDF, 50, Typeface::Bold };
+	const Font font{ FontMethod::MSDF, 50, Typeface::Bold };
 	OthelloAI::Game game;
 	double depth = 5;
 	int value = 0;
 	int ai_player = 1;
-	std::future<OthelloAI::AI_result> ai_future;
+
+	AsyncTask<OthelloAI::AI_result> task;
 
 	constexpr Vec2 BoardPos{ 40, 60 };
 
@@ -542,7 +549,7 @@ void Main()
 			// 終了ボタンが押されたらAIを強制終了してからExitする
 			if (System::GetUserActions() & UserAction::CloseButtonClicked)
 			{
-				stop_calculating(&ai_future);
+				AbortTask(task);
 				System::Exit();
 			}
 
@@ -552,7 +559,7 @@ void Main()
 				if (game.player == ai_player)
 				{
 					// AI による着手
-					ai_move(&game, round(depth), &value, &ai_future);
+					UpdateAI(game, static_cast<int32>(Math::Round(depth)), &value, task);
 				}
 				else
 				{
@@ -573,21 +580,21 @@ void Main()
 			const Transformer2D screenScaling{ Mat3x2::Scale(scale), TransformCursor::Yes };
 
 			// ボードを描画する
-			DrawBoard(game, BoardPos, boldFont);
+			DrawBoard(game, BoardPos, font);
 
 			// 難易度設定
-			SimpleGUI::Slider(U"先読み {} 手"_fmt(round(depth)), depth, 1, 9, Vec2{ 470, 10 }, 150, 150); // 読み手数
+			SimpleGUI::Slider(U"先読み {} 手"_fmt(static_cast<int32>(Math::Round(depth))), depth, 1, 9, Vec2{ 470, 10 }, 150, 150); // 読み手数
 
 			// 対局開始ボタン
 			if (SimpleGUI::Button(U"後手（白）で対局", Vec2{ 470, 60 }))
 			{
-				stop_calculating(&ai_future);
+				AbortTask(task);
 				game.reset();
 				ai_player = 0;
 			}
 			else if (SimpleGUI::Button(U"先手（黒）で対局", Vec2{ 470, 100 }))
 			{
-				stop_calculating(&ai_future);
+				AbortTask(task);
 				game.reset();
 				ai_player = 1;
 			}
