@@ -5,6 +5,10 @@ namespace OthelloAI
 	// ビットボード
 	using BitBoard = uint64;
 
+	/// @brief ビットボード上のインデックス
+	/// @remark A1 が 63, B1 が 62, C1 が 61, ... H8 が 0
+	using BitBoardIndex = uint8;
+
 	/// @brief セルのインデックス
 	/// @remark A1 が 0, B1 が 1, C1 が 2, ... H8 が 63 
 	using CellIndex = int32;
@@ -21,14 +25,14 @@ namespace OthelloAI
 	// AI 非同期タスクの中断フラグ
 	std::atomic<bool> g_abort = false;
 
-	// 石を返すときに使う情報
-	struct Flip
+	// 着手の情報
+	struct Record
 	{
+		// 着手位置
+		BitBoardIndex pos;
+
 		// 返る石
 		BitBoard flip;
-
-		// 着手位置
-		uint8 pos;
 	};
 
 	// 64ビット整数の1のビットの個数を数える
@@ -76,42 +80,42 @@ namespace OthelloAI
 		}
 
 		/// @brief 着手します
-		/// @param flip 着手情報
-		void move(Flip flip)
+		/// @param record 着手情報
+		void move(Record record)
 		{
-			m_player ^= flip.flip;
-			m_opponent ^= flip.flip;
-			m_player ^= (1ULL << flip.pos);
+			m_player ^= record.flip;
+			m_opponent ^= record.flip;
+			m_player ^= (1ULL << record.pos);
 			std::swap(m_player, m_opponent);
 		}
 
 		/// @brief 着手を取り消します。
-		/// @param flip 取り消す着手情報
-		void undo(Flip flip)
+		/// @param record 取り消す着手情報
+		void undo(Record record)
 		{
 			std::swap(m_player, m_opponent);
-			m_player ^= (1ULL << flip.pos);
-			m_player ^= flip.flip;
-			m_opponent ^= flip.flip;
+			m_player ^= (1ULL << record.pos);
+			m_player ^= record.flip;
+			m_opponent ^= record.flip;
 		}
 
-		/// @brief 着手したときに返る石を求めます。
-		/// @param pos 着手位置
+		/// @brief ある着手を行ったときの着手情報を返します。
+		/// @param move 着手位置
 		/// @return 着手情報
-		Flip getFlip(uint8 pos) const
+		Record makeRecord(BitBoardIndex pos) const
 		{
 			constexpr int32 Shifts[8] = { 1, -1, 8, -8, 7, -7, 9, -9 };
 			constexpr uint64 Masks[4] = { 0x7E7E7E7E7E7E7E7EULL, 0x00FFFFFFFFFFFF00ULL, 0x007E7E7E7E7E7E00ULL, 0x007E7E7E7E7E7E00ULL };
 			const uint64 x = (1ULL << pos);
-			Flip result{ .flip = 0ULL, .pos = pos };
+			Record record{ .pos = pos, .flip = 0ULL };
 
 			// 縦横斜めの8方向それぞれ別に計算する
 			for (int32 i = 0; i < 8; ++i)
 			{
-				result.flip |= GetFlipPart(m_player, m_opponent, Shifts[i], Masks[i / 2], x);
+				record.flip |= GetFlipPart(m_player, m_opponent, Shifts[i], Masks[i / 2], x);
 			}
 
-			return result;
+			return record;
 		}
 
 		// パス
@@ -253,8 +257,8 @@ namespace OthelloAI
 		}
 	};
 
-	// AIの根幹部分。Nega-Alpha法
-	int32 nega_alpha(Board board, int32 depth, int32 alpha, int32 beta, bool passed)
+	// AI の根幹部分。Nega-Alpha 法
+	int32 NegaAlpha(Board board, int32 depth, int32 alpha, int32 beta, bool passed)
 	{
 		if (g_abort) // 強制終了
 		{
@@ -277,20 +281,20 @@ namespace OthelloAI
 
 			board.pass();
 
-			return -nega_alpha(board, depth, -beta, -alpha, true); // 手番を入れ替えてもう一度探索
+			return -NegaAlpha(board, depth, -beta, -alpha, true); // 手番を入れ替えてもう一度探索
 		}
 
-		Flip flip;
+		Record record;
 
-		for (uint_fast8_t cell = first_bit(&legal); legal; cell = next_bit(&legal)) // 合法手を走査
+		for (BitBoardIndex cell = first_bit(&legal); legal; cell = next_bit(&legal)) // 合法手を走査
 		{
-			flip = board.getFlip(cell); // 返る石を計算
+			record = board.makeRecord(cell); // 返る石を計算
 
-			board.move(flip); // 着手する
+			board.move(record); // 着手する
 
-			alpha = std::max(alpha, -nega_alpha(board, depth - 1, -beta, -alpha, false)); // 次の手番の探索
+			alpha = Max(alpha, -NegaAlpha(board, depth - 1, -beta, -alpha, false)); // 次の手番の探索
 
-			board.undo(flip); // 着手を取り消す
+			board.undo(record); // 着手を取り消す
 
 			if (beta <= alpha) // 途中で枝刈りできる場合はする
 			{
@@ -301,39 +305,50 @@ namespace OthelloAI
 		return alpha; // 求めた評価値を返す
 	}
 
-	// AIの計算結果
-	struct AI_result
+	/// @brief AI の計算結果
+	struct AI_Result
 	{
-		int32 pos; // 選んだ手(h8が0、g8が1、f8が2、、、、a1が63)
+		/// @brief 選んだ手
+		BitBoardIndex pos;
 
-		int32 value; // 評価値(AI目線) 最終石差を表す。
+		/// @brief AI 目線での評価値（最終石差）
+		int32 value;
 	};
 
 	// nega_alphaだけだと評価値を求めることしかできないので、この関数で実際に打つ手を選ぶ。
-	AI_result ai(Board board, int32 depth)
+	AI_Result AITask(Board board, int32 depth)
 	{
-		AI_result res = { -1, -Board::MaxScore - 1 };
+		AI_Result result = { 0, (-Board::MaxScore - 1) };
+
 		BitBoard legal = board.getLegalBitBoard(); // 合法手生成
-		int v;
-		Flip flip;
-		for (uint_fast8_t cell = first_bit(&legal); legal; cell = next_bit(&legal)) // 合法手を走査
+
+		int32 value = 0;
+
+		Record record;
+
+		// 各合法手について
+		for (BitBoardIndex pos = first_bit(&legal); legal; pos = next_bit(&legal))
 		{
-			flip = board.getFlip(cell); // 返る石を求める
-			board.move(flip); // 着手
-			v = -nega_alpha(board, depth - 1, -Board::MaxScore, -res.value, false); // 評価値を求める
-			board.undo(flip); // 着手を取り消す
-			if (res.value < v) // これまで見た評価値よりも良い評価値なら値を更新
+			record = board.makeRecord(pos); // 返る石を求める
+
+			board.move(record); // 着手
+
+			value = -NegaAlpha(board, depth - 1, -Board::MaxScore, -result.value, false); // 評価値を求める
+
+			board.undo(record); // 着手を取り消す
+
+			if (result.value < value) // これまで見た評価値よりも良い評価値なら値を更新
 			{
-				res.pos = cell;
-				res.value = v;
+				result = { pos, value };
 			}
 		}
-		return res;
+
+		return result;
 	}
 
 	/// @brief AI の非同期タスクを終了させます。
 	/// @param task 非同期タスク
-	void AbortTask(AsyncTask<OthelloAI::AI_result>& task)
+	void AbortTask(AsyncTask<OthelloAI::AI_Result>& task)
 	{
 		if (task.isValid())
 		{
@@ -350,46 +365,57 @@ namespace OthelloAI
 	{
 	public:
 
-		Board board; // ビットボード
-
-		int32 player; // Boardだけだと白番か黒番かわからないので手番情報が必要
-
 		Game()
 		{
 			reset();
 		}
 
+		[[nodiscard]]
+		const Board& getBoard() const
+		{
+			return m_board;
+		}
+
 		// ボードの初期化
 		void reset()
 		{
-			board.reset();
+			m_board.reset();
 
-			player = 0;
+			m_activePlayer = 0;
 
 			m_gameOver = false;
 		}
 
 		// 着手と手番の更新
-		void move(uint8 pos)
+		void move(BitBoardIndex pos)
 		{
-			board.move(board.getFlip(pos));
+			m_board.move(m_board.makeRecord(pos));
 
-			player ^= 1;
+			m_activePlayer ^= 1;
 
 			// 合法手が無い場合は
-			if (board.getLegalBitBoard() == 0ULL)
+			if (m_board.getLegalBitBoard() == 0ULL)
 			{
 				// パスして手番を変更する
-				board.pass();
-				player ^= 1;
+				m_board.pass();
+
+				m_activePlayer ^= 1;
 
 				// それでも合法手が無い場合は
-				if (board.getLegalBitBoard() == 0ULL)
+				if (m_board.getLegalBitBoard() == 0ULL)
 				{
 					// 終局
 					m_gameOver = true;
 				}
 			}
+		}
+
+		/// @brief 現在アクティブな手番を返します。
+		/// @return 現在アクティブな手番（0: 黒, 1: 白）
+		[[nodiscard]]
+		int32 getActivePlayer() const
+		{
+			return m_activePlayer;
 		}
 
 		/// @brief 終局しているかを返します。
@@ -405,7 +431,7 @@ namespace OthelloAI
 		[[nodiscard]]
 		int32 getBlackScore() const
 		{
-			return ((player == 0) ? board.getPlayerScore() : board.getOpponentScore());
+			return ((m_activePlayer == 0) ? m_board.getPlayerScore() : m_board.getOpponentScore());
 		}
 
 		/// @brief 白の得点を返します。
@@ -413,10 +439,16 @@ namespace OthelloAI
 		[[nodiscard]]
 		int32 getWhiteScore() const
 		{
-			return ((player == 0) ? board.getOpponentScore() : board.getPlayerScore());
+			return ((m_activePlayer == 0) ? m_board.getOpponentScore() : m_board.getPlayerScore());
 		}
 
 	private:
+
+		// ビットボード
+		Board m_board;
+
+		// 現在アクティブな手番（0: 黒, 1: 白）
+		int32 m_activePlayer = 0;
 
 		// 終局しているか
 		bool m_gameOver = false;
@@ -469,9 +501,9 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 
 	// 石と合法手を描画する
 	{
-		const OthelloAI::BitBoard playerBitBoard = game.board.getPlayerBitBoard();
-		const OthelloAI::BitBoard opponentBitBoard = game.board.getOpponentBitBoard();
-		const OthelloAI::BitBoard legalBitBoard = game.board.getLegalBitBoard();
+		const OthelloAI::BitBoard playerBitBoard = game.getBoard().getPlayerBitBoard();
+		const OthelloAI::BitBoard opponentBitBoard = game.getBoard().getOpponentBitBoard();
+		const OthelloAI::BitBoard legalBitBoard = game.getBoard().getLegalBitBoard();
 
 		for (int32 cellIndex = 0; cellIndex < 64; ++cellIndex)
 		{
@@ -480,11 +512,11 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 
 			if (OthelloAI::HasFlag(playerBitBoard, cellIndex))
 			{
-				Circle{ x, y, DiskRadius }.draw(DiskColors[game.player]);
+				Circle{ x, y, DiskRadius }.draw(DiskColors[game.getActivePlayer()]);
 			}
 			else if (OthelloAI::HasFlag(opponentBitBoard, cellIndex))
 			{
-				Circle{ x, y, DiskRadius }.draw(DiskColors[game.player ^ 1]);
+				Circle{ x, y, DiskRadius }.draw(DiskColors[game.getActivePlayer() ^ 1]);
 			}
 			else if (OthelloAI::HasFlag(legalBitBoard, cellIndex))
 			{
@@ -498,10 +530,10 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 void UpdateManually(OthelloAI::Game& game, const Vec2& pos)
 {
 	// 現在の合法手
-	OthelloAI::BitBoard legal = game.board.getLegalBitBoard();
+	OthelloAI::BitBoard legal = game.getBoard().getLegalBitBoard();
 
 	// 合法手を走査
-	for (auto cell = OthelloAI::first_bit(&legal); legal; cell = OthelloAI::next_bit(&legal))
+	for (OthelloAI::BitBoardIndex cell = OthelloAI::first_bit(&legal); legal; cell = OthelloAI::next_bit(&legal))
 	{
 		const int32 x = ((63 - cell) % 8); // ビットボードではh8が0だが、GUIではa1が0なので63 - cellにする
 		const int32 y = ((63 - cell) / 8);
@@ -517,19 +549,19 @@ void UpdateManually(OthelloAI::Game& game, const Vec2& pos)
 }
 
 // AI の手番で AI が着手する関数
-void UpdateAI(OthelloAI::Game& game, int32 depth, int32& value, AsyncTask<OthelloAI::AI_result>& task)
+void UpdateAI(OthelloAI::Game& game, int32 depth, int32& value, AsyncTask<OthelloAI::AI_Result>& task)
 {
 	// AI スレッドが未開始の場合は
 	if (not task.isValid())
 	{
 		// AI スレッドを開始する
-		task = Async(OthelloAI::ai, game.board, depth);
+		task = Async(OthelloAI::AITask, game.getBoard(), depth);
 	}
 
 	// AI スレッドが計算完了した場合は
 	if (task.isReady())
 	{
-		const OthelloAI::AI_result result = task.get();
+		const OthelloAI::AI_Result result = task.get();
 
 		value = result.value;
 
@@ -553,9 +585,10 @@ void Main()
 
 	int32 value = 0;
 
-	int32 ai_player = 1;
+	// 人間のプレイヤーのインデックス (0 の場合先手、1 の場合後手）
+	int32 humanPlayer = 0;
 
-	AsyncTask<OthelloAI::AI_result> task;
+	AsyncTask<OthelloAI::AI_Result> task;
 
 	while (System::Update())
 	{
@@ -568,15 +601,15 @@ void Main()
 			// 終局していなければ
 			if (not game.isOver())
 			{
-				if (game.player == ai_player)
-				{
-					// AI による着手
-					UpdateAI(game, Depth, value, task);
-				}
-				else
+				if (game.getActivePlayer() == humanPlayer)
 				{
 					// 人間による着手
 					UpdateManually(game, BoardPos);
+				}
+				else
+				{
+					// AI による着手
+					UpdateAI(game, Depth, value, task);
 				}
 			}
 		}
@@ -596,22 +629,22 @@ void Main()
 				{
 					AbortTask(task);
 					game.reset();
-					ai_player = 1;
+					humanPlayer = 0;
 				}
 
 				if (SimpleGUI::Button(U"後手（白）で対局開始", Vec2{ 470, 80 }))
 				{
 					AbortTask(task);
 					game.reset();
-					ai_player = 0;
+					humanPlayer = 1;
 				}
 			}
 
 			// 手番の表示
 			if (not game.isOver())
 			{
-				font((game.player == 0) ? U"黒番" : U"白番").draw(20, Vec2{ 470, 140 });
-				font((game.player == ai_player) ? U"AI の手番" : U"あなたの手番").draw(20, Vec2{ 470, 180 });
+				font((game.getActivePlayer() == 0) ? U"黒番" : U"白番").draw(20, Vec2{ 470, 140 });
+				font((game.getActivePlayer() == humanPlayer) ? U"あなたの手番" : U"AI の手番").draw(20, Vec2{ 470, 180 });
 			}
 			else
 			{
