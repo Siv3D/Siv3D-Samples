@@ -31,13 +31,20 @@ namespace OthelloAI
 		return static_cast<CellIndex>(63 - i);
 	}
 
-	/// @brief ビットボード上の指定したセルにフラグが立っているかを返します。
+	/// @brief ビットボードを bool 型の配列に変換します。
 	/// @param bitBoard ビットボード
-	/// @param cellIndex セルのインデックス
-	/// @return フラグが立っている場合 true, それ以外の場合は false
-	constexpr bool HasFlag(BitBoard bitBoard, CellIndex cellIndex)
+	/// @return bool 型の配列
+	[[nodiscard]]
+	constexpr std::array<bool, 64> ToArray(BitBoard bitBoard)
 	{
-		return static_cast<bool>(1 & (bitBoard >> (63 - cellIndex)));
+		std::array<bool, 64> results{};
+
+		for (CellIndex i = 0; i < 64; ++i)
+		{
+			results[i] = static_cast<bool>(1 & (bitBoard >> (63 - i)));
+		}
+
+		return results;
 	}
 
 	/// @brief 着手の情報
@@ -85,7 +92,7 @@ namespace OthelloAI
 			m_opponent ^= record.flip;
 		}
 
-		/// @brief ある着手を行ったときの着手情報を返します。
+		/// @brief ある着手を行った場合の着手情報を返します。
 		/// @param move 着手位置
 		/// @return 着手情報
 		Record makeRecord(BitBoardIndex pos) const
@@ -258,20 +265,20 @@ namespace OthelloAI
 		}
 	};
 
-	/// @brief AI の計算結果
-	struct AI_Result
-	{
-		/// @brief 選んだ手
-		BitBoardIndex pos;
-
-		/// @brief AI 目線での評価値（最終石差）
-		int32 value;
-	};
-
 	// GUIで使うボード
 	class Game
 	{
 	public:
+
+		/// @brief AI の計算結果
+		struct AI_Result
+		{
+			/// @brief 選んだ手
+			BitBoardIndex pos;
+
+			/// @brief AI 目線での評価値（最終石差）
+			int32 value;
+		};
 
 		Game()
 		{
@@ -324,11 +331,6 @@ namespace OthelloAI
 			}
 		}
 
-		void moveByCellIndex(CellIndex i)
-		{
-			move(ToBitBoardIndex(i));
-		}
-
 		Optional<AI_Result> calculate() const
 		{
 			// AI スレッドが未開始の場合は
@@ -348,15 +350,15 @@ namespace OthelloAI
 		}
 
 		[[nodiscard]]
-		std::array<bool, 64> getPlayerDisks() const
+		std::array<bool, 64> getBlackDisks() const
 		{
-			return ToArray(m_board.getPlayerBitBoard());
+			return ToArray((m_activePlayer == 0) ? m_board.getPlayerBitBoard() : m_board.getOpponentBitBoard());
 		}
 
 		[[nodiscard]]
-		std::array<bool, 64> getOpponentDisks() const
+		std::array<bool, 64> getWhiteDisks() const
 		{
-			return ToArray(m_board.getOpponentBitBoard());
+			return ToArray((m_activePlayer == 0) ? m_board.getOpponentBitBoard() : m_board.getPlayerBitBoard());
 		}
 
 		[[nodiscard]]
@@ -421,18 +423,6 @@ namespace OthelloAI
 
 		// AI 非同期タスクの中断フラグ
 		inline static std::atomic<bool> m_abort = false;
-
-		static std::array<bool, 64> ToArray(BitBoard bitboard)
-		{
-			std::array<bool, 64> results;
-
-			for (CellIndex i = 0; i < 64; ++i)
-			{
-				results[i] = HasFlag(bitboard, i);
-			}
-
-			return results;
-		}
 
 		// 2進数として数値を見て右端からいくつ0が連続しているか: Number of Training Zero
 		static uint_fast8_t ntz(uint64* x)
@@ -563,7 +553,6 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 	constexpr double GridDotRadius = (CellSize * 0.1);
 	constexpr double DiskRadius = (CellSize * 0.4);
 	constexpr ColorF GridColor{ 0.2 };
-	constexpr ColorF DiskColors[2] = { Palette::Black, Palette::White };
 
 	// 行・列ラベルを描画する
 	for (int32 i = 0; i < 8; ++i)
@@ -589,27 +578,27 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 
 	// 石を描画する
 	{
-		const std::array<bool, 64> playerDisks = game.getPlayerDisks();
-		const std::array<bool, 64> opponentDisks = game.getOpponentDisks();
+		const std::array<bool, 64> balckDisks = game.getBlackDisks();
+		const std::array<bool, 64> whiteDisks = game.getWhiteDisks();
 
 		for (OthelloAI::CellIndex i = 0; i < 64; ++i)
 		{
 			const Vec2 center = (pos + Vec2{ (i % 8), (i / 8) } *CellSize + CellSize * Vec2{ 0.5, 0.5 });
 
-			if (playerDisks[i])
+			if (balckDisks[i])
 			{
-				Circle{ center, DiskRadius }.draw(DiskColors[game.getActivePlayer()]);
+				Circle{ center, DiskRadius }.draw(Palette::Black);
 			}
-			else if (opponentDisks[i])
+			else if (whiteDisks[i])
 			{
-				Circle{ center, DiskRadius }.draw(DiskColors[game.getActivePlayer() ^ 1]);
+				Circle{ center, DiskRadius }.draw(Palette::White);
 			}
 		}
 	}
 }
 
 // 人間の手番でマスをクリックして着手する関数
-void UpdateManually(OthelloAI::Game& game, const Vec2& pos)
+Optional<OthelloAI::BitBoardIndex> UpdateManually(OthelloAI::Game& game, const Vec2& pos)
 {
 	// 現在の合法手
 	const std::array<bool, 64> legals = game.getLegals();
@@ -626,18 +615,32 @@ void UpdateManually(OthelloAI::Game& game, const Vec2& pos)
 
 		cell.drawFrame(CellSize * 0.15, 0, ColorF{ 1.0, 0.4 });
 
+		// 合法手をマウスオーバーしていたら
 		if (cell.mouseOver())
 		{
 			Cursor::RequestStyle(CursorStyle::Hand);
 
 			cell.draw(ColorF{ 1.0, 0.5 });
 
+			const std::array<bool, 64> flips = OthelloAI::ToArray(game.getBoard().makeRecord(OthelloAI::ToBitBoardIndex(i)).flip);
+
+			for (OthelloAI::CellIndex k = 0; k < 64; ++k)
+			{
+				if (flips[k])
+				{
+					RectF{ (pos.x + (k % 8) * CellSize), (pos.y + (k / 8) * CellSize), CellSize }
+						.draw(ColorF{ Palette::Orange, 0.6 });
+				}
+			}
+
 			if (cell.leftClicked())
 			{
-				game.moveByCellIndex(i);
+				return OthelloAI::ToBitBoardIndex(i);
 			}
 		}
 	}
+
+	return none;
 }
 
 void Main()
@@ -672,7 +675,10 @@ void Main()
 			{
 				if (game.getActivePlayer() == humanPlayer) // 人間による着手
 				{
-					UpdateManually(game, BoardPos);
+					if (const auto result = UpdateManually(game, BoardPos))
+					{
+						game.move(*result);
+					}
 				}
 				else // AI による着手
 				{
