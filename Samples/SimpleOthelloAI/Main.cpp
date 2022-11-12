@@ -372,7 +372,7 @@ namespace OthelloAI
 			return move;
 		}
 
-		/// @brief AI に現在の手番で最適な着手位置を計算してもらいます。
+		/// @brief AI に現在の手番で最適な着手位置を非同期で計算してもらいます。
 		/// @return 計算結果。計算途中の場合は none
 		[[nodiscard]]
 		Optional<AI_Result> calculateAsync() const
@@ -456,6 +456,8 @@ namespace OthelloAI
 			return ((m_activeColor == OthelloAI::Color::Black) ? m_board.getOpponentScore() : m_board.getPlayerScore());
 		}
 
+		/// @brief 着手の履歴を返します。
+		/// @return 着手の履歴
 		[[nodiscard]]
 		const Array<std::pair<OthelloAI::Color, OthelloAI::Move>>& getHistory() const
 		{
@@ -484,6 +486,7 @@ namespace OthelloAI
 		// 終局しているか
 		bool m_gameOver = false;
 
+		// 先読みの手数
 		int32 m_depth = 5;
 
 		// AI の非同期タスク
