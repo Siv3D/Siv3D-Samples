@@ -65,7 +65,7 @@ namespace OthelloAI
 	}
 
 	/// @brief 着手の情報
-	struct Record
+	struct Move
 	{
 		/// @brief 着手位置
 		BitBoardIndex pos;
@@ -104,42 +104,42 @@ namespace OthelloAI
 		}
 
 		/// @brief 着手します。
-		/// @param record 着手情報
-		void move(Record record)
+		/// @param move 着手情報
+		void move(Move move)
 		{
-			m_player ^= record.flip;
-			m_opponent ^= record.flip;
-			m_player ^= (1ULL << record.pos);
+			m_player ^= move.flip;
+			m_opponent ^= move.flip;
+			m_player ^= (1ULL << move.pos);
 			std::swap(m_player, m_opponent);
 		}
 
 		/// @brief 着手を取り消します。
-		/// @param record 取り消す着手情報
-		void undo(Record record)
+		/// @param move 取り消す着手情報
+		void undo(Move move)
 		{
 			std::swap(m_player, m_opponent);
-			m_player ^= (1ULL << record.pos);
-			m_player ^= record.flip;
-			m_opponent ^= record.flip;
+			m_player ^= (1ULL << move.pos);
+			m_player ^= move.flip;
+			m_opponent ^= move.flip;
 		}
 
 		/// @brief ある着手を行った場合の着手情報を返します。
 		/// @param move 着手位置
 		/// @return 着手情報
-		Record makeRecord(BitBoardIndex pos) const
+		Move makeMove(BitBoardIndex pos) const
 		{
 			constexpr int32 Shifts[8] = { 1, -1, 8, -8, 7, -7, 9, -9 };
 			constexpr uint64 Masks[4] = { 0x7E7E7E7E7E7E7E7EULL, 0x00FFFFFFFFFFFF00ULL, 0x007E7E7E7E7E7E00ULL, 0x007E7E7E7E7E7E00ULL };
 			const uint64 x = (1ULL << pos);
-			Record record{ .pos = pos, .flip = 0ULL };
+			Move move{ .pos = pos, .flip = 0ULL };
 
 			// 縦横斜めの8方向それぞれ別に計算する
 			for (int32 i = 0; i < 8; ++i)
 			{
-				record.flip |= GetFlipPart(m_player, m_opponent, Shifts[i], Masks[i / 2], x);
+				move.flip |= GetFlipPart(m_player, m_opponent, Shifts[i], Masks[i / 2], x);
 			}
 
-			return record;
+			return move;
 		}
 
 		/// @brief 手番を入れ替えます。
@@ -343,13 +343,13 @@ namespace OthelloAI
 		/// @brief 着手します。
 		/// @param pos 着手位置
 		/// @return 着手情報
-		Record move(BitBoardIndex pos)
+		Move move(BitBoardIndex pos)
 		{
-			const Record record = m_board.makeRecord(pos);
+			const Move move = m_board.makeMove(pos);
 
-			m_history.emplace_back(m_activeColor, record);
+			m_history.emplace_back(m_activeColor, move);
 
-			m_board.move(record);
+			m_board.move(move);
 
 			m_activeColor = ~m_activeColor;
 
@@ -369,7 +369,7 @@ namespace OthelloAI
 				}
 			}
 
-			return record;
+			return move;
 		}
 
 		/// @brief AI に現在の手番で最適な着手位置を計算してもらいます。
@@ -457,7 +457,7 @@ namespace OthelloAI
 		}
 
 		[[nodiscard]]
-		const Array<std::pair<OthelloAI::Color, OthelloAI::Record>>& getHistory() const
+		const Array<std::pair<OthelloAI::Color, OthelloAI::Move>>& getHistory() const
 		{
 			return m_history;
 		}
@@ -479,7 +479,7 @@ namespace OthelloAI
 		OthelloAI::Color m_activeColor = OthelloAI::Color::Black;
 
 		// 着手履歴
-		Array<std::pair<OthelloAI::Color, OthelloAI::Record>> m_history;
+		Array<std::pair<OthelloAI::Color, OthelloAI::Move>> m_history;
 
 		// 終局しているか
 		bool m_gameOver = false;
@@ -538,17 +538,17 @@ namespace OthelloAI
 				return -NegaAlpha(board, depth, -beta, -alpha, true); // 手番を入れ替えてもう一度探索
 			}
 
-			Record record;
+			Move move;
 
 			for (BitBoardIndex cell = first_bit(&legal); legal; cell = next_bit(&legal)) // 合法手を走査
 			{
-				record = board.makeRecord(cell); // 返る石を計算
+				move = board.makeMove(cell); // 返る石を計算
 
-				board.move(record); // 着手する
+				board.move(move); // 着手する
 
 				alpha = Max(alpha, -NegaAlpha(board, depth - 1, -beta, -alpha, false)); // 次の手番の探索
 
-				board.undo(record); // 着手を取り消す
+				board.undo(move); // 着手を取り消す
 
 				if (beta <= alpha) // 途中で枝刈りできる場合はする
 				{
@@ -568,18 +568,18 @@ namespace OthelloAI
 
 			int32 value = 0;
 
-			Record record;
+			Move move;
 
 			// 各合法手について
 			for (BitBoardIndex pos = first_bit(&legal); legal; pos = next_bit(&legal))
 			{
-				record = board.makeRecord(pos); // 返る石を求める
+				move = board.makeMove(pos); // 返る石を求める
 
-				board.move(record); // 着手
+				board.move(move); // 着手
 
 				value = -NegaAlpha(board, depth - 1, -Board::MaxScore, -result.value, false); // 評価値を求める
 
-				board.undo(record); // 着手を取り消す
+				board.undo(move); // 着手を取り消す
 
 				if (result.value < value) // これまで見た評価値よりも良い評価値なら値を更新
 				{
@@ -758,7 +758,7 @@ Optional<OthelloAI::BitBoardIndex> UpdateManually(OthelloAI::Game& game, const V
 			cell.draw(ColorF{ 1.0, 0.5 });
 
 			// その合法手で返すことのできる石
-			const std::array<bool, 64> flips = OthelloAI::ToArray(game.getBoard().makeRecord(OthelloAI::ToBitBoardIndex(i)).flip);
+			const std::array<bool, 64> flips = OthelloAI::ToArray(game.getBoard().makeMove(OthelloAI::ToBitBoardIndex(i)).flip);
 
 			for (OthelloAI::CellIndex k = 0; k < 64; ++k)
 			{
