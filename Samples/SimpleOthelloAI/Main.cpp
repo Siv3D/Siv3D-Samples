@@ -374,7 +374,8 @@ namespace OthelloAI
 
 		/// @brief AI に現在の手番で最適な着手位置を計算してもらいます。
 		/// @return 計算結果。計算途中の場合は none
-		Optional<AI_Result> calculate() const
+		[[nodiscard]]
+		Optional<AI_Result> calculateAsync() const
 		{
 			// AI スレッドが未開始の場合は
 			if (not m_task.isValid())
@@ -390,6 +391,13 @@ namespace OthelloAI
 			}
 
 			return none;
+		}
+
+		/// @brief AI に現在の手番で最適な着手位置を計算してもらいます。
+		/// @return 計算結果
+		AI_Result calculate() const
+		{
+			return AITask(m_board, m_depth);
 		}
 
 		/// @brief 黒の石の配置を返します。
@@ -820,12 +828,24 @@ void Main()
 				else // AI の手番
 				{
 					// AI による着手
-					if (const auto result = game.calculate())
+				# if SIV3D_PLATFORM(WEB)
+
+					const auto result = game.calculate();
+					const auto record = game.move(result.pos);
+					value = result.value;
+					stopwatch.restart();
+
+				# else
+
+					// 非同期で計算
+					if (const auto result = game.calculateAsync())
 					{
 						const auto record = game.move(result->pos);
 						value = result->value;
 						stopwatch.restart();
 					}
+
+				# endif
 				}
 			}
 		}
