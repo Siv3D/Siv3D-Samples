@@ -629,6 +629,9 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 	constexpr double GridDotRadius = (CellSize * 0.1);
 	constexpr double DiskRadius = (CellSize * 0.4);
 	constexpr ColorF GridColor{ 0.2 };
+	constexpr ColorF BlackDiskColor{ 0.11 };
+	constexpr ColorF WhiteDiskColor{ 0.98 };
+	constexpr ColorF DiskShadowColor{ 0.0, 0.5 };
 
 	// 行・列ラベルを描画する
 	for (int32 i = 0; i < 8; ++i)
@@ -668,29 +671,34 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 		for (OthelloAI::CellIndex i = 0; i < 64; ++i)
 		{
 			const Vec2 center = pos + ToVec2(i);
+			const Circle disk{ center, DiskRadius };
 
-			if (flips[i])
+			if (flips[i] && (t < 1.0))
 			{
+				const Transformer2D tr{ Mat3x2::Scale((t < 0.5) ? (0.5 - t) * 2 : (t - 0.5) * 2, 1.0, center) };
+
+				disk.drawShadow(Vec2{ 0, 2 }, 7, 2, DiskShadowColor);
+
 				if (balckDisks[i])
 				{
 					if (t < 0.5)
 					{
-						Circle{ center, DiskRadius }.scaled((0.5 - t) * 2, 1.0).draw(Palette::White);
+						disk.draw(WhiteDiskColor);
 					}
 					else
 					{
-						Circle{ center, DiskRadius }.scaled((t - 0.5) * 2, 1.0).draw(Palette::Black);
+						disk.draw(BlackDiskColor);
 					}
 				}
 				else if (whiteDisks[i])
 				{
 					if (t < 0.5)
 					{
-						Circle{ center, DiskRadius }.scaled((0.5 - t) * 2, 1.0).draw(Palette::Black);
+						disk.draw(BlackDiskColor);
 					}
 					else
 					{
-						Circle{ center, DiskRadius }.scaled((t - 0.5) * 2, 1.0).draw(Palette::White);
+						disk.draw(WhiteDiskColor);
 					}
 				}
 			}
@@ -698,11 +706,11 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 			{
 				if (balckDisks[i])
 				{
-					Circle{ center, DiskRadius }.draw(Palette::Black);
+					disk.drawShadow(Vec2{ 0, 2 }, 7, 2, DiskShadowColor).draw(BlackDiskColor);
 				}
 				else if (whiteDisks[i])
 				{
-					Circle{ center, DiskRadius }.draw(Palette::White);
+					disk.drawShadow(Vec2{ 0, 2 }, 7, 2, DiskShadowColor).draw(WhiteDiskColor);
 				}
 			}
 		}
