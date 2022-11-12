@@ -782,9 +782,10 @@ void Main()
 	// 手番開始時のクールタイム
 	constexpr Duration CoolTime = 0.5s;
 
+	// ゲームの情報
 	OthelloAI::Game game;
 
-	// AI の先読み手数（先読み手数が大きいと、強くなるが処理時間が伸びる。1 ～ 9 が目安）
+	// AI の先読み手数（先読み手数が大きいと強くなるが、計算時間が長くなる。1 ～ 9 が目安）
 	game.setAIDepth(5);
 
 	// AI 視点での評価値
@@ -793,6 +794,7 @@ void Main()
 	// 人間プレイヤーの色
 	OthelloAI::Color humanColor = OthelloAI::Color::Black;
 
+	// 着手からの経過時間測定
 	Stopwatch stopwatch{ StartImmediately::Yes };
 
 	while (System::Update())
@@ -841,12 +843,12 @@ void Main()
 			{
 				Optional<OthelloAI::Color> reset;
 
-				if (SimpleGUI::Button(U"先手 (黒) で対局開始", Vec2{ 470, 40 }))
+				if (SimpleGUI::Button(U"\U000F012F 先手 (黒) で対局開始", Vec2{ 470, 40 }))
 				{
 					reset = OthelloAI::Color::Black;
 				}
 
-				if (SimpleGUI::Button(U"後手 (白) で対局開始", Vec2{ 470, 80 }))
+				if (SimpleGUI::Button(U"\U000F0130 後手 (白) で対局開始", Vec2{ 470, 80 }))
 				{
 					reset = OthelloAI::Color::White;
 				}
