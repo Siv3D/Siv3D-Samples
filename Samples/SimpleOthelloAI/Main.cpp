@@ -13,6 +13,23 @@ namespace OthelloAI
 	/// @remark A1 が 0, B1 が 1, C1 が 2, ... H8 が 63 
 	using CellIndex = int32;
 
+	/// @brief 色
+	enum class Color
+	{
+		Black,
+
+		White
+	};
+
+	/// @brief 反対の色を返します。
+	/// @param c 色
+	/// @return 反対の色
+	[[nodiscard]]
+	constexpr Color operator ~(Color c)
+	{
+		return ((c == Color::Black) ? Color::White : Color::Black);
+	}
+
 	/// @brief セルのインデックスをビットボード上のインデックスに変換します。
 	/// @param i セルのインデックス
 	/// @return ビットボード上のインデックス
@@ -55,9 +72,23 @@ namespace OthelloAI
 
 		/// @brief 返る石
 		BitBoard flip;
+
+		/// @brief 着手位置をセルのインデックスで返します。
+		/// @return 着手位置（セルのインデックス）
+		CellIndex asCellIndex() const
+		{
+			return ToCellIndex(pos);
+		}
+
+		/// @brief 着手位置を符号で返します。
+		/// @return 着手位置の符号
+		String asLabel() const
+		{
+			return{ char32('h' - (pos % 8)), char32('8' - (pos / 8)) };
+		}
 	};
 
-	// ビットボード
+	/// @brief ビットボード
 	class Board
 	{
 	public:
@@ -72,7 +103,7 @@ namespace OthelloAI
 			m_opponent = 0x0000001008000000ULL;
 		}
 
-		/// @brief 着手します
+		/// @brief 着手します。
 		/// @param record 着手情報
 		void move(Record record)
 		{
@@ -195,7 +226,7 @@ namespace OthelloAI
 			return ((p > o) ? (p - o + v) : (p - o - v));
 		}
 
-		/// @brief 64 ビット整数の 1 のビットの個数を数える
+		/// @brief 64 ビット整数の 1 のビットの個数を数えます。
 		/// @param x 整数
 		/// @return 1 のビットの個数
 		static constexpr int32 pop_count_ull(uint64 x)
@@ -265,7 +296,7 @@ namespace OthelloAI
 		}
 	};
 
-	// GUIで使うボード
+	/// @brief ゲーム情報
 	class Game
 	{
 	public:
@@ -295,24 +326,32 @@ namespace OthelloAI
 			m_depth = depth;
 		}
 
-		// ボードの初期化
+		/// @brief ゲームを初期化します。
 		void reset()
 		{
 			AbortTask(m_task);
 
 			m_board.reset();
 
-			m_activePlayer = 0;
+			m_activeColor = OthelloAI::Color::Black;
 
 			m_gameOver = false;
+
+			m_history.clear();
 		}
 
-		// 着手と手番の更新
-		void move(BitBoardIndex pos)
+		/// @brief 着手します。
+		/// @param pos 着手位置
+		/// @return 着手情報
+		Record move(BitBoardIndex pos)
 		{
-			m_board.move(m_board.makeRecord(pos));
+			const Record record = m_board.makeRecord(pos);
 
-			m_activePlayer ^= 1;
+			m_history.emplace_back(m_activeColor, record);
+
+			m_board.move(record);
+
+			m_activeColor = ~m_activeColor;
 
 			// 合法手が無い場合は
 			if (m_board.getLegalBitBoard() == 0ULL)
@@ -320,7 +359,7 @@ namespace OthelloAI
 				// パスして手番を変更する
 				m_board.pass();
 
-				m_activePlayer ^= 1;
+				m_activeColor = ~m_activeColor;
 
 				// それでも合法手が無い場合は
 				if (m_board.getLegalBitBoard() == 0ULL)
@@ -329,8 +368,12 @@ namespace OthelloAI
 					m_gameOver = true;
 				}
 			}
+
+			return record;
 		}
 
+		/// @brief AI に現在の手番で最適な着手位置を計算してもらいます。
+		/// @return 計算結果。計算途中の場合は none
 		Optional<AI_Result> calculate() const
 		{
 			// AI スレッドが未開始の場合は
@@ -349,30 +392,36 @@ namespace OthelloAI
 			return none;
 		}
 
+		/// @brief 黒の石の配置を返します。
+		/// @return 黒の石の配置
 		[[nodiscard]]
 		std::array<bool, 64> getBlackDisks() const
 		{
-			return ToArray((m_activePlayer == 0) ? m_board.getPlayerBitBoard() : m_board.getOpponentBitBoard());
+			return ToArray((m_activeColor == OthelloAI::Color::Black) ? m_board.getPlayerBitBoard() : m_board.getOpponentBitBoard());
 		}
 
+		/// @brief 白の石の配置を返します。
+		/// @return 白の石の配置
 		[[nodiscard]]
 		std::array<bool, 64> getWhiteDisks() const
 		{
-			return ToArray((m_activePlayer == 0) ? m_board.getOpponentBitBoard() : m_board.getPlayerBitBoard());
+			return ToArray((m_activeColor == OthelloAI::Color::Black) ? m_board.getOpponentBitBoard() : m_board.getPlayerBitBoard());
 		}
 
+		/// @brief 合法手の配置を返します。
+		/// @return 合法手の配置
 		[[nodiscard]]
 		std::array<bool, 64> getLegals() const
 		{
 			return ToArray(m_board.getLegalBitBoard());
 		}
 
-		/// @brief 現在アクティブな手番を返します。
-		/// @return 現在アクティブな手番（0: 黒, 1: 白）
+		/// @brief 現在アクティブな色を返します。
+		/// @return 現在アクティブな色
 		[[nodiscard]]
-		int32 getActivePlayer() const
+		OthelloAI::Color getActiveColor() const
 		{
-			return m_activePlayer;
+			return m_activeColor;
 		}
 
 		/// @brief 終局しているかを返します。
@@ -388,7 +437,7 @@ namespace OthelloAI
 		[[nodiscard]]
 		int32 getBlackScore() const
 		{
-			return ((m_activePlayer == 0) ? m_board.getPlayerScore() : m_board.getOpponentScore());
+			return ((m_activeColor == OthelloAI::Color::Black) ? m_board.getPlayerScore() : m_board.getOpponentScore());
 		}
 
 		/// @brief 白の得点を返します。
@@ -396,9 +445,17 @@ namespace OthelloAI
 		[[nodiscard]]
 		int32 getWhiteScore() const
 		{
-			return ((m_activePlayer == 0) ? m_board.getOpponentScore() : m_board.getPlayerScore());
+			return ((m_activeColor == OthelloAI::Color::Black) ? m_board.getOpponentScore() : m_board.getPlayerScore());
 		}
 
+		[[nodiscard]]
+		const Array<std::pair<OthelloAI::Color, OthelloAI::Record>>& getHistory() const
+		{
+			return m_history;
+		}
+
+		/// @brief ビットボードを返します。
+		/// @return ビットボード
 		[[nodiscard]]
 		const Board& getBoard() const
 		{
@@ -410,8 +467,11 @@ namespace OthelloAI
 		// ビットボード
 		Board m_board;
 
-		// 現在アクティブな手番（0: 黒, 1: 白）
-		int32 m_activePlayer = 0;
+		// 現在アクティブな色
+		OthelloAI::Color m_activeColor = OthelloAI::Color::Black;
+
+		// 着手履歴
+		Array<std::pair<OthelloAI::Color, OthelloAI::Record>> m_history;
 
 		// 終局しているか
 		bool m_gameOver = false;
@@ -424,19 +484,19 @@ namespace OthelloAI
 		// AI 非同期タスクの中断フラグ
 		inline static std::atomic<bool> m_abort = false;
 
-		// 2進数として数値を見て右端からいくつ0が連続しているか: Number of Training Zero
+		// 2 進数として数値を見て右端からいくつ 0 が連続しているか: Number of Training Zero
 		static uint_fast8_t ntz(uint64* x)
 		{
 			return static_cast<uint_fast8_t>(Board::pop_count_ull((~(*x)) & ((*x) - 1)));
 		}
 
-		// 立っているビットを走査するときにfor文で使うと便利
+		// 立っているビットを走査するときに for 文で使うと便利
 		static uint_fast8_t first_bit(uint64* x)
 		{
 			return ntz(x);
 		}
 
-		// 立っているビットを走査するときにfor文で使うと便利
+		// 立っているビットを走査するときに for 文で使うと便利
 		static uint_fast8_t next_bit(uint64* x)
 		{
 			*x &= *x - 1; // 最右の立っているビットをオフにする
@@ -522,6 +582,7 @@ namespace OthelloAI
 			return result;
 		}
 
+		// 非同期タスクを中断する
 		static void AbortTask(AsyncTask<AI_Result>& task)
 		{
 			if (task.isValid())
@@ -542,12 +603,27 @@ namespace OthelloAI
 //
 ////////////////////////////////
 
-// 描画で使う定数
+/// @brief ボードのサイズ
 constexpr double BoardSize = 400;
+
+/// @brief セルの大きさ
 constexpr double CellSize = (BoardSize / 8);
 
-// ボードの描画
-void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFont)
+/// @brief セルのインデックスを座標に変換します。
+/// @param i セルのインデックス
+/// @return セルの座標
+[[nodiscard]]
+constexpr Vec2 ToVec2(OthelloAI::CellIndex i)
+{
+	return (Vec2{ (i % 8), (i / 8) } * CellSize + CellSize * Vec2{ 0.5, 0.5 });
+}
+
+/// @brief 盤面を描画します。
+/// @param game ゲーム
+/// @param pos ボードの左上の位置
+/// @param labelFont ラベル用フォント
+/// @param t アニメーション [0.0, 1.0]
+void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFont, double t)
 {
 	constexpr double GridThickness = 2;
 	constexpr double GridDotRadius = (CellSize * 0.1);
@@ -581,23 +657,62 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 		const std::array<bool, 64> balckDisks = game.getBlackDisks();
 		const std::array<bool, 64> whiteDisks = game.getWhiteDisks();
 
+		std::array<bool, 64> flips{};
+		if (game.getHistory())
+		{
+			flips = OthelloAI::ToArray(game.getHistory().back().second.flip);
+		}
+
+		t = EaseInOutCirc(t);
+
 		for (OthelloAI::CellIndex i = 0; i < 64; ++i)
 		{
-			const Vec2 center = (pos + Vec2{ (i % 8), (i / 8) } *CellSize + CellSize * Vec2{ 0.5, 0.5 });
+			const Vec2 center = pos + ToVec2(i);
 
-			if (balckDisks[i])
+			if (flips[i])
 			{
-				Circle{ center, DiskRadius }.draw(Palette::Black);
+				if (balckDisks[i])
+				{
+					if (t < 0.5)
+					{
+						Circle{ center, DiskRadius }.scaled((0.5 - t) * 2, 1.0).draw(Palette::White);
+					}
+					else
+					{
+						Circle{ center, DiskRadius }.scaled((t - 0.5) * 2, 1.0).draw(Palette::Black);
+					}
+				}
+				else if (whiteDisks[i])
+				{
+					if (t < 0.5)
+					{
+						Circle{ center, DiskRadius }.scaled((0.5 - t) * 2, 1.0).draw(Palette::Black);
+					}
+					else
+					{
+						Circle{ center, DiskRadius }.scaled((t - 0.5) * 2, 1.0).draw(Palette::White);
+					}
+				}
 			}
-			else if (whiteDisks[i])
+			else
 			{
-				Circle{ center, DiskRadius }.draw(Palette::White);
+				if (balckDisks[i])
+				{
+					Circle{ center, DiskRadius }.draw(Palette::Black);
+				}
+				else if (whiteDisks[i])
+				{
+					Circle{ center, DiskRadius }.draw(Palette::White);
+				}
 			}
 		}
 	}
 }
 
-// 人間の手番でマスをクリックして着手する関数
+/// @brief 人間の手番でセルをクリックして着手します。
+/// @param game ゲーム
+/// @param pos ボードの左上の位置
+/// @return 着手した場合はビットボード上のインデックス、それ以外の場合は none
 Optional<OthelloAI::BitBoardIndex> UpdateManually(OthelloAI::Game& game, const Vec2& pos)
 {
 	// 現在の合法手
@@ -611,7 +726,7 @@ Optional<OthelloAI::BitBoardIndex> UpdateManually(OthelloAI::Game& game, const V
 			continue;
 		}
 
-		const RectF cell{ (pos.x + (i % 8) * CellSize), (pos.y + (i / 8) * CellSize), CellSize };
+		const RectF cell{ Arg::center = (pos + ToVec2(i)), CellSize };
 
 		cell.drawFrame(CellSize * 0.15, 0, ColorF{ 1.0, 0.4 });
 
@@ -622,13 +737,14 @@ Optional<OthelloAI::BitBoardIndex> UpdateManually(OthelloAI::Game& game, const V
 
 			cell.draw(ColorF{ 1.0, 0.5 });
 
+			// その合法手で返すことのできる石
 			const std::array<bool, 64> flips = OthelloAI::ToArray(game.getBoard().makeRecord(OthelloAI::ToBitBoardIndex(i)).flip);
 
 			for (OthelloAI::CellIndex k = 0; k < 64; ++k)
 			{
 				if (flips[k])
 				{
-					RectF{ (pos.x + (k % 8) * CellSize), (pos.y + (k / 8) * CellSize), CellSize }
+					RectF{ Arg::center = (pos + ToVec2(k)), CellSize }
 						.draw(ColorF{ Palette::Orange, 0.6 });
 				}
 			}
@@ -647,9 +763,12 @@ void Main()
 {
 	Scene::SetBackground(ColorF{ 0.15, 0.6, 0.45 });
 
-	constexpr Vec2 BoardPos{ 40, 40 };
+	constexpr Vec2 BoardOffset{ 40, 40 };
 
-	const Font font{ FontMethod::MSDF, 50, Typeface::Bold };
+	const Font font{ FontMethod::MSDF, 48, Typeface::Bold };
+
+	// 手番開始時のクールタイム
+	constexpr Duration CoolTime = 0.5s;
 
 	OthelloAI::Game game;
 
@@ -659,8 +778,10 @@ void Main()
 	// AI 視点での評価値
 	int32 value = 0;
 
-	// 人間のプレイヤーのインデックス (0 の場合先手、1 の場合後手）
-	int32 humanPlayer = 0;
+	// 人間プレイヤーの色
+	OthelloAI::Color humanColor = OthelloAI::Color::Black;
+
+	Stopwatch stopwatch{ StartImmediately::Yes };
 
 	while (System::Update())
 	{
@@ -671,21 +792,25 @@ void Main()
 		////////////////////////////////
 		{
 			// 終局していなければ
-			if (not game.isOver())
+			if (not game.isOver() && (CoolTime <= stopwatch))
 			{
-				if (game.getActivePlayer() == humanPlayer) // 人間による着手
+				if (game.getActiveColor() == humanColor) // 人間の手番
 				{
-					if (const auto result = UpdateManually(game, BoardPos))
+					// 人間による着手
+					if (const auto result = UpdateManually(game, BoardOffset))
 					{
-						game.move(*result);
+						const auto record = game.move(*result);
+						stopwatch.restart();
 					}
 				}
-				else // AI による着手
+				else // AI の手番
 				{
+					// AI による着手
 					if (const auto result = game.calculate())
 					{
-						game.move(result->pos);
+						const auto record = game.move(result->pos);
 						value = result->value;
+						stopwatch.restart();
 					}
 				}
 			}
@@ -698,42 +823,53 @@ void Main()
 		////////////////////////////////
 		{
 			// ボード
-			DrawBoard(game, BoardPos, font);
+			DrawBoard(game, BoardOffset, font, Min(1.0, (stopwatch.elapsed() / (CoolTime * 0.6))));
 
 			// 対局開始ボタン
 			{
+				Optional<OthelloAI::Color> reset;
+
 				if (SimpleGUI::Button(U"先手（黒）で対局開始", Vec2{ 470, 40 }))
 				{
-					game.reset();
-					value = 0;
-					humanPlayer = 0;
+					reset = OthelloAI::Color::Black;
 				}
 
 				if (SimpleGUI::Button(U"後手（白）で対局開始", Vec2{ 470, 80 }))
 				{
+					reset = OthelloAI::Color::White;
+				}
+
+				if (reset)
+				{
 					game.reset();
 					value = 0;
-					humanPlayer = 1;
+					humanColor = *reset;
 				}
 			}
 
 			// 手番の表示
 			if (not game.isOver())
 			{
-				font((game.getActivePlayer() == 0) ? U"黒番" : U"白番").draw(20, Vec2{ 470, 140 });
-				font((game.getActivePlayer() == humanPlayer) ? U"あなたの手番" : U"AI の手番").draw(20, Vec2{ 470, 180 });
+				font(U"{}番（{}の手番）"_fmt(
+					((game.getActiveColor() == OthelloAI::Color::Black) ? U'黒' : U'白'),
+					((game.getActiveColor() == humanColor) ? U"あなた" : U"AI ")
+					)).draw(20, Vec2{ 470, 140 });
+			}
+			else
+			{
+				font(U"終局").draw(20, Vec2{ 470, 140 });
 			}
 		
 			// 得点の表示
 			{
-				Circle{ 480, 230, 12 }.draw(Palette::Black);
-				Circle{ 600, 230, 12 }.draw(Palette::White);
-				Line{ 540, 218, 540, 242 }.draw(2, ColorF{ 0.2 });
-				font(game.getBlackScore()).draw(20, Arg::leftCenter(500, 230));
-				font(game.getWhiteScore()).draw(20, Arg::rightCenter(580, 230));
+				Circle{ 480, 190, 12 }.draw(Palette::Black);
+				Circle{ 600, 190, 12 }.draw(Palette::White);
+				Line{ 540, 178, 540, 202 }.draw(2, ColorF{ 0.2 });
+				font(game.getBlackScore()).draw(20, Arg::leftCenter(500, 190));
+				font(game.getWhiteScore()).draw(20, Arg::rightCenter(580, 190));
 			}
 
-			font(U"AI 視点の評価値: {}"_fmt(value)).draw(20, Vec2{ 470, 260 });
+			font(U"AI 視点の評価値: {}"_fmt(value)).draw(20, Vec2{ 470, 220 });
 		}
 	}
 }
