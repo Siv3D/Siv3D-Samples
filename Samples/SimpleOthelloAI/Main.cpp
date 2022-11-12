@@ -609,6 +609,12 @@ constexpr double BoardSize = 400;
 /// @brief セルの大きさ
 constexpr double CellSize = (BoardSize / 8);
 
+/// @brief 黒石の色
+constexpr ColorF BlackDiskColor{ 0.11 };
+
+/// @brief 白石の色
+constexpr ColorF WhiteDiskColor{ 0.98 };
+
 /// @brief セルのインデックスを座標に変換します。
 /// @param i セルのインデックス
 /// @return セルの座標
@@ -629,8 +635,6 @@ void DrawBoard(const OthelloAI::Game& game, const Vec2& pos, const Font& labelFo
 	constexpr double GridDotRadius = (CellSize * 0.1);
 	constexpr double DiskRadius = (CellSize * 0.4);
 	constexpr ColorF GridColor{ 0.2 };
-	constexpr ColorF BlackDiskColor{ 0.11 };
-	constexpr ColorF WhiteDiskColor{ 0.98 };
 	constexpr ColorF DiskShadowColor{ 0.0, 0.5 };
 
 	// 行・列ラベルを描画する
@@ -837,12 +841,12 @@ void Main()
 			{
 				Optional<OthelloAI::Color> reset;
 
-				if (SimpleGUI::Button(U"先手（黒）で対局開始", Vec2{ 470, 40 }))
+				if (SimpleGUI::Button(U"先手 (黒) で対局開始", Vec2{ 470, 40 }))
 				{
 					reset = OthelloAI::Color::Black;
 				}
 
-				if (SimpleGUI::Button(U"後手（白）で対局開始", Vec2{ 470, 80 }))
+				if (SimpleGUI::Button(U"後手 (白) で対局開始", Vec2{ 470, 80 }))
 				{
 					reset = OthelloAI::Color::White;
 				}
@@ -870,8 +874,8 @@ void Main()
 		
 			// 得点の表示
 			{
-				Circle{ 480, 190, 12 }.draw(Palette::Black);
-				Circle{ 600, 190, 12 }.draw(Palette::White);
+				Circle{ 480, 190, 12 }.draw(BlackDiskColor);
+				Circle{ 600, 190, 12 }.draw(WhiteDiskColor);
 				Line{ 540, 178, 540, 202 }.draw(2, ColorF{ 0.2 });
 				font(game.getBlackScore()).draw(20, Arg::leftCenter(500, 190));
 				font(game.getWhiteScore()).draw(20, Arg::rightCenter(580, 190));
