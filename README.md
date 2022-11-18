@@ -8,10 +8,10 @@
 | マインスイーパー | 見下ろし型 2D シューティング | カーソルを注目する矢印 |
 | Minesweeper | Top-down 2D Shooter | Focus Arrows |
 
-| <a href="Samples/TabSample"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/TabSample/Screenshot/2.png" width="250px"></a> |
-|:--:|
-| タブ |
-| Tabs |
+| <a href="Samples/TabSample"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/TabSample/Screenshot/2.png" width="250px"></a> | <a href="Samples/HPBar"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/HPBar/Screenshot/2.png" width="250px"></a> |
+|:--:|:--:|
+| タブ | HP バー |
+| Tabs | HP bar |
 
 
 ## 投稿方法
