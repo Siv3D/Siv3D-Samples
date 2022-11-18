@@ -50,8 +50,15 @@ public:
 
 	/// @brief 長方形の HP バーを描画します。
 	/// @param rect 長方形
+	void draw(const RectF& rect)
+	{
+		draw(rect, Style{});
+	}
+
+	/// @brief 長方形の HP バーを描画します。
+	/// @param rect 長方形
 	/// @param style スタイル
-	void draw(const RectF& rect, const Style& style = {})
+	void draw(const RectF& rect, const Style& style)
 	{
 		const RectF rectDelay{ rect.pos, (rect.w * getDelayHPRatio()), rect.h };
 		const RectF rectHP{ rect.pos, (rect.w * getHPRatio()), rect.h };
@@ -64,8 +71,15 @@ public:
 
 	/// @brief 指定した長方形の角を削った、六角形の HP バーを描画します。
 	/// @param rect 長方形
+	void drawHex(const RectF& rect)
+	{
+		drawHex(rect, Style{});
+	}
+
+	/// @brief 指定した長方形の角を削った、六角形の HP バーを描画します。
+	/// @param rect 長方形
 	/// @param style スタイル
-	void drawHex(const RectF& rect, const Style& style = {})
+	void drawHex(const RectF& rect, const Style& style)
 	{
 		const RectF rectDelay{ rect.pos, (rect.w * getDelayHPRatio()), rect.h };
 		const RectF rectHP{ rect.pos, (rect.w * getHPRatio()), rect.h };
