@@ -8,10 +8,12 @@
 | マインスイーパー | 見下ろし型 2D シューティング | カーソルを注目する矢印 |
 | Minesweeper | Top-down 2D Shooter | Focus Arrows |
 
-| <a href="Samples/TabSample"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/TabSample/Screenshot/2.png" width="250px"></a> | <a href="Samples/HPBar"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/HPBar/Screenshot/2.png" width="250px"></a> |
-|:--:|:--:|
-| タブ | HP バー |
-| Tabs | HP bar |
+| <a href="Samples/TabSample"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/TabSample/Screenshot/2.png" width="250px"></a> | <a href="Samples/HPBar"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/HPBar/Screenshot/2.png" width="250px"></a> | <a href="Samples/SimpleOthelloAI"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/SimpleOthelloAI/Screenshot/2.png" width="250px"></a> |
+|:--:|:--:|:--:|
+| タブ | HP バー | オセロ AI 🏆 |
+| Tabs | HP bar | Othello AI |
+
+🏆 マークはユーザ投稿サンプルです。
 
 
 ## 投稿方法
@@ -29,6 +31,8 @@
 - ゲーム・アプリ作品、開発に役立つサンプル、テクニック紹介などを募集します
 - コードの規模は、改造や再利用がしやすい数百行程度が理想的ですが、厳しい縛りはありません
 - 採用された作品は `CC0-1.0 license` として扱います
+- 掲載にあたってコードのリファクタリングや README の修正を行います
+- 掲載後の修正も歓迎です
 
 
 ## README テンプレート
