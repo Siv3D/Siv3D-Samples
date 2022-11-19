@@ -10,8 +10,8 @@
 
 | <a href="Samples/TabSample"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/TabSample/Screenshot/2.png" width="250px"></a> | <a href="Samples/HPBar"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/HPBar/Screenshot/2.png" width="250px"></a> | <a href="Samples/SimpleOthelloAI"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/SimpleOthelloAI/Screenshot/2.png" width="250px"></a> |
 |:--:|:--:|:--:|
-| タブ | HP バー | オセロ AI 🏆 |
-| Tabs | HP bar | Othello AI |
+| タブ | HP バー | AI オセロ 🏆 |
+| Tabs | HP bar | AI Othello |
 
 🏆 マークはユーザ投稿サンプルです。
 
