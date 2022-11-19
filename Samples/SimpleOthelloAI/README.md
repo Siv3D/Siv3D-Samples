@@ -5,7 +5,7 @@
 | Author        | [山名琢翔](https://nyanyan.dev/) |
 | Affiliation   | 筑波大学                         |
 | Siv3D Version | v0.6.5                           |
-| Platform      | Windows                          |
+| Platform      | Windows, macOS, Linux, Web       |
 
 ## 説明 | Description
 
