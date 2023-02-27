@@ -1,531 +1,657 @@
-# include <Siv3D.hpp>
-# include <list>
+# include <Siv3D.hpp> // OpenSiv3D v0.6.6
 
+/// @brief カードの配列, 末尾にあるカードがテーブル上で一番上にある
+using CardList = Array<PlayingCard::Card>;
 
-// カードサイズ
-constexpr double CardWidth = 80;
-constexpr Vec2 CardSize{ CardWidth, CardWidth * Math::Phi };
-// 山札の領域
-constexpr RectF StockRegion{ Arg::center = Vec2{ 100, 100 }, CardSize };
-// 捨て札の領域
-constexpr RectF WasteRegion{ Arg::center = Vec2{ 200, 100 }, CardSize };
-// 組札の領域
-constexpr RectF FoundationRegions[4] {
-	RectF{ Arg::center = Vec2{ 400, 100 }, CardSize },
-	RectF{ Arg::center = Vec2{ 500, 100 }, CardSize },
-	RectF{ Arg::center = Vec2{ 600, 100 }, CardSize },
-	RectF{ Arg::center = Vec2{ 700, 100 }, CardSize },
-};
-// 一番下の場札の領域
-constexpr RectF TableauBottomRegions[7] {
-	RectF{ Arg::center = Vec2{ 100, 250 }, CardSize },
-	RectF{ Arg::center = Vec2{ 200, 250 }, CardSize },
-	RectF{ Arg::center = Vec2{ 300, 250 }, CardSize },
-	RectF{ Arg::center = Vec2{ 400, 250 }, CardSize },
-	RectF{ Arg::center = Vec2{ 500, 250 }, CardSize },
-	RectF{ Arg::center = Vec2{ 600, 250 }, CardSize },
-	RectF{ Arg::center = Vec2{ 700, 250 }, CardSize },
-};
-// 場札のずらし幅
-constexpr double TableauPileOffset = 25;
-
-
-// カードを扱うコンテナ
-using CardList = std::list<PlayingCard::Card>;
-
-
-// カードをドラッグするためのクラス
+/// @brief ドラッグ中のカードを管理するクラス
 class CardDragger
 {
-private:
-	// ドラッグ中のカード
-	CardList cards;
-	// ドラッグ元のリスト
-	CardList* source = nullptr;
-	// ドラッグ元のイテレータ
-	CardList::iterator sourcePos;
-	// カーソル位置からのずれ
-	Vec2 offsetFromCursor;
-
 public:
-	// ドラッグ開始
-	void dragStart(CardList& source, CardList::iterator pos, const Vec2& cardPos)
+
+	/// @brief ドラッグを開始します。
+	/// @param source ドラッグ元の配列
+	/// @param n ドラッグする枚数
+	/// @param cardPos カードの座標
+	void drag(CardList& source, const int32 n, const Vec2& cardPos)
 	{
-		dragStart(source, pos, std::next(pos), cardPos);
-	}
-	void dragStart(CardList& source, CardList::iterator first, CardList::iterator last, const Vec2& cardPos)
-	{
-		dragEnd();
-		cards.splice(cards.end(), source, first, last);
-		this->source = &source;
-		sourcePos = last;
-		offsetFromCursor = cardPos - Cursor::PosF();
+		cancel();
+
+		m_items.assign((source.end() - n), source.end());
+
+		source.pop_back_N(n);
+
+		m_pSource = &source;
+
+		m_offsetFromCursor = (cardPos - Cursor::PosF());
 	}
 
-	// ドラッグ終了
-	void dragEnd()
+	/// @brief 現在のドラッグを中止し, ドラッグしていたカードを元の配列に戻します。
+	void cancel()
 	{
-		if (source)
+		if (not m_pSource)
 		{
-			source->splice(sourcePos, cards, cards.begin(), cards.end());
-			source = nullptr;
+			return;
 		}
+
+		m_pSource->append(m_items);
+
+		clear();
 	}
 
-	// ドロップ
-	void drop(CardList& target, CardList::iterator targetPos)
+	/// @brief ドラッグしていたカードをドロップします。
+	/// @param target ドロップ先の配列
+	void drop(CardList& target)
 	{
-		if (source)
+		if (not m_pSource)
 		{
-			target.splice(targetPos, cards, cards.begin(), cards.end());
-			source = nullptr;
+			return;
 		}
+
+		target.append(m_items);
+
+		clear();
 	}
 
-	// 初期化
+	/// @brief アイテムを消去します。
 	void clear()
 	{
-		cards.clear();
-		source = nullptr;
+		m_items.clear();
+		m_pSource = nullptr;
 	}
 
-	// ドラッグ中かどうか
+	/// @brief ドラッグ中であるかを返します。
+	/// @return ドラッグ中である場合 true, それ以外の場合は false
 	[[nodiscard]]
-	bool isDragging() const
+	bool hasItem() const
 	{
-		return source != nullptr;
+		return (m_pSource != nullptr);
 	}
 
-	// ドラッグ中のカード
+	/// @brief ドラッグ中のカード一覧を返します。
+	/// @return ドラッグ中のカード一覧
 	[[nodiscard]]
-	const CardList& cardList() const
+	const CardList& items() const
 	{
-		return cards;
+		return m_items;
 	}
 
-	// ドラッグ中のカードを描画
-	void draw(const PlayingCard::Pack& pack) const
+	/// @brief ドラッグ中のカードを描画します。
+	/// @param pack 描画するカード
+	void draw(const PlayingCard::Pack& pack, const double tableauPileOffset) const
 	{
-		if (source)
+		if (not m_pSource)
 		{
-			auto pos = Cursor::PosF() + offsetFromCursor;
-			for (auto&& card : cards)
-			{
-				pack(card).draw(pos);
-				pos.y += TableauPileOffset;
-			}
+			return;
+		}
+
+		Vec2 pos = (Cursor::PosF() + m_offsetFromCursor);
+
+		for (const auto& card : m_items)
+		{
+			pack(card).draw(pos);
+			pos.y += tableauPileOffset;
 		}
 	}
-};
 
-
-// クリアアニメーションのためのクラス
-class ClearAnimation
-{
 private:
-	static constexpr Vec3 MaxVelocity{ 300, 500, Math::TwoPi };
-	static constexpr double Gravity = 200;
 
-	const Font font{ 120, Typeface::Black };
-	double time;
-	struct
-	{
-		PlayingCard::Suit suit;
-		Vec3 positions[13];
-		Vec3 velocity[13];
-	}
-	foundations[4];
+	/// @brief ドラッグ中のカード
+	CardList m_items;
 
-public:
-	// アニメーション開始
-	void start(const PlayingCard::Suit (&suits)[4])
-	{
-		time = 0;
-		for (auto i : step(4))
-		{
-			auto&& [suit, positions, velocity] = foundations[i];
-			suit = suits[i];
-			for (auto&& r : positions)
-			{
-				r = Vec3{ FoundationRegions[i].pos, 0 };
-			}
-			for (auto&& v : velocity)
-			{
-				auto&& [x, y, theta] = MaxVelocity;
-				v = Vec3{ Random(-x, x), Random(-y, y), Random(-theta, theta) };
-			}
-		}
-	}
+	/// @brief ドラッグ元の配列へのポインタ
+	CardList* m_pSource = nullptr;
 
-	// 更新
-	void update()
-	{
-		time += Scene::DeltaTime();
-		for (auto i : step(Min(4, static_cast<int>(time))))
-		{
-			auto&& [suit, positions, velocity] = foundations[i];
-			for (auto&& v : velocity)
-			{
-				v.y = Min(MaxVelocity.y, v.y + Gravity * Scene::DeltaTime());
-			}
-			for (auto i : step(13))
-			{
-				auto&& r = positions[i];
-				auto&& v = velocity[i];
-				r += v * Scene::DeltaTime();
-				while (r.x < -200) r.x += Scene::Width() + 400;
-				while (r.x > Scene::Width() + 200) r.x -= Scene::Width() + 400;
-				while (r.y < -200) r.y += Scene::Height() + 400;
-				while (r.y > Scene::Height() + 200) r.y -= Scene::Height() + 400;
-				while (r.z < -Math::Pi) r.z += Math::TwoPi;
-				while (r.z > Math::Pi) r.z -= Math::TwoPi;
-			}
-		}
-	}
-
-	// 描画
-	void draw(const PlayingCard::Pack& pack) const
-	{
-		for (auto&& [suit, positions, velocity] : foundations)
-		{
-			for (auto i : step(13))
-			{
-				auto&& [x, y, theta] = positions[i];
-				pack(PlayingCard::Card{ suit, i + 1 }).draw(x, y, theta);
-			}
-		}
-		font(U"おめでとう").drawAt(font.fontSize() - Periodic::Sine0_1(800ms) * 20, Scene::Center(), Palette::Red);
-	}
+	/// @brief カーソル位置からのずれ（ピクセル）
+	Vec2 m_offsetFromCursor{ 0, 0 };
 };
 
+/// @brief 勝利アニメーションのクラス
+class VictoryAnimation
+{
+public:
 
-// クロンダイクの処理、描画のためのクラス
+	/// @brief アニメーションの初期パラメータを設定します。
+	/// @param suits 組札エリアのスートの並び
+	void start(const std::array<PlayingCard::Suit, 4>& suits, const std::array<RectF, 4>& foundationRegions)
+	{
+		m_time = 0.0;
+		m_suits = suits;
+
+		for (size_t i = 0; i < m_cards.size(); ++i)
+		{
+			for (auto& card : m_cards[i])
+			{
+				card.reset(foundationRegions[i].pos);
+			}
+		}
+	}
+
+	/// @brief アニメーションを更新します。
+	void update(const double deltaTime = Scene::DeltaTime())
+	{
+		m_time += deltaTime;
+
+		for (size_t i = 0; i < m_cards.size(); ++i)
+		{
+			if (m_time < (i + 1))
+			{
+				break;
+			}
+
+			for (auto& card : m_cards[i])
+			{
+				card.update(deltaTime);
+			}
+		}
+	}
+
+	/// @brief アニメーションを描画します。
+	/// @param pack 描画するカード
+	void draw(const PlayingCard::Pack& pack) const
+	{
+		for (size_t i = 0; i < m_cards.size(); ++i)
+		{
+			for (int32 k = 0; k < m_cards[i].size(); ++k)
+			{
+				pack(PlayingCard::Card{ m_suits[i], (k + 1)})
+					.draw(m_cards[i][k].position, m_cards[i][k].angle);
+			}
+		}
+	}
+
+private:
+
+	double m_time = 0.0;
+
+	struct CardState
+	{
+		static constexpr Vec2 MaxVelocity{ 300, 500 };
+
+		static constexpr double MaxAngularVelocity = 2_pi;
+
+		static constexpr double Gravity = 200;
+
+		Vec2 position;
+
+		Vec2 velocity;
+
+		double angle;
+
+		double angularVelocity;
+
+		void reset(const Vec2& initialPos)
+		{
+			position = initialPos;
+			velocity = Vec2{ Random(-MaxVelocity.x, MaxVelocity.x), Random(-MaxVelocity.y, MaxVelocity.y) };
+			angle = 0.0;
+			angularVelocity = Random(-MaxAngularVelocity, MaxAngularVelocity);
+		}
+
+		void update(const double deltaTime)
+		{
+			velocity.y = Min(MaxVelocity.y, (velocity.y + Gravity * deltaTime));
+			position += (velocity * deltaTime);
+			angle += (angularVelocity * deltaTime);
+			while (position.x < -200) position.x += (Scene::Width() + 400);
+			while (position.x > Scene::Width() + 200) position.x -= (Scene::Width() + 400);
+			while (position.y < -200) position.y += (Scene::Height() + 400);
+			while (position.y > Scene::Height() + 200) position.y -= (Scene::Height() + 400);
+			while (angle < -Math::Pi) angle += 2_pi;
+			while (angle > Math::Pi) angle -= 2_pi;
+		}
+	};
+
+	std::array<PlayingCard::Suit, 4> m_suits;
+
+	std::array<std::array<CardState, 13>, 4> m_cards;
+};
+
+/// @brief クロンダイクのゲーム管理クラス
 class Klondike
 {
-private:
-	// カード描画用
-	const PlayingCard::Pack pack{ CardWidth };
-	// 絵文字描画用
-	const Font emoji{ 30 , Typeface::MonochromeEmoji };
-
-	// 山札（捨て札も含む）
-	CardList stock;
-	// 山札の一番上の位置（これより前が捨て札）
-	CardList::iterator stockTop = stock.begin();
-	// 場札
-	CardList tableauPiles[7];
-	// 組札
-	CardList foundations[4];
-	// ドラッグ用
-	CardDragger dragger;
-	// クリアフラグ
-	bool cleared = false;
-	// クリアアニメーション用
-	ClearAnimation clearAnimation;
-
 public:
-	// クリアチェック
+
+	/// @brief ゲームを作成します。
+	Klondike()
+		: m_pack{ CardWidth }
+	{
+		reset();
+	}
+
+	/// @brief ゲームを初期化します。
+	void reset()
+	{
+		// ドラッグ用パラメータを初期化する
+		m_dragger.clear();
+
+		// ジョーカー 0 枚, すべて裏面で山札を初期化する
+		m_stock = PlayingCard::CreateDeck(0, PlayingCard::Card::Back).shuffled();
+
+		// 捨て札を空の配列にする
+		m_waste.clear();
+
+		// すべての組札を空の配列にする
+		m_foundations.fill({});
+
+		// 山札から配って場札を初期化する
+		{
+			// 配る枚数
+			int32 n = 1;
+
+			// 各場札列について
+			for (auto& pile : m_tableauPiles)
+			{
+				// 山札の末尾 n 枚を場札列にセットする
+				pile.assign((m_stock.end() - n), m_stock.end());
+
+				// 山札の末尾 n 枚を削除する
+				m_stock.pop_back_N(n);
+
+				// 場札列の 1 枚を表向きにする
+				pile.back().flip();
+
+				++n;
+			}
+		}
+	}
+
+	/// @brief ゲームに勝利したかを返します。
+	/// @return ゲームに勝利した場合 true, それ以外の場合は false
 	[[nodiscard]]
 	bool isCleared() const
 	{
-		// すべての組札にカードが13枚あればクリア
-		for (auto&& foundation : foundations)
+		// すべての組札列に 13 枚のカードがあれば勝利
+		for (const auto& foundation : m_foundations)
 		{
 			if (foundation.size() != 13)
 			{
 				return false;
 			}
 		}
+
 		return true;
 	}
 
-	// 開始
-	void start()
-	{
-		// デッキ生成
-		auto deck = PlayingCard::CreateDeck();
-		deck.shuffle();
-		// 山札を初期化
-		stock.assign(deck.begin(), deck.end());
-		// 組札を初期化
-		for (auto&& foundation : foundations)
-		{
-			foundation.clear();
-		}
-		// 山札から配って場札を初期化
-		for (auto i : step(7))
-		{
-			auto& pile = tableauPiles[i];
-			pile.clear();
-			pile.splice(pile.end(), stock, stock.begin(), std::next(stock.begin(), i + 1));
-			std::for_each(pile.begin(), std::prev(pile.end()), [](auto&& card) { card.isFaceSide = false; });
-		}
-		// 山札の一番上の位置を設定
-		stockTop = stock.begin();
-		// ドラッグ用パラメータの初期化
-		dragger.clear();
-		// クリアフラグの消去
-		cleared = false;
-	}
-
-	// 更新
+	/// @brief ゲームを更新します。
 	void update()
 	{
-		// もし [リスタート] が押されたら
-		if (SimpleGUI::Button(U"リスタート", Vec2{ 40, 740 }))
+		if (isCleared()) // もしクリアしていれば
 		{
-			// ゲームを開始
-			start();
+			m_victoryAnimation.update();
 			return;
 		}
 
-		// もしクリアしていれば
-		if (cleared)
-		{
-			// クリアアニメーションを更新
-			clearAnimation.update();
-		}
-		// そうでなければ
-		else
-		{
-			// カードを更新
-			updateCards();
+		// カードの状態を更新する
+		updateCards();
 
-			// もしマウスの左ボタンが離されたら
-			if (MouseL.up())
-			{
-				// ドラッグ終了
-				dragger.dragEnd();
-			}
-
-			// もしクリアしたら
-			if (isCleared())
-			{
-				// クリアフラグを立てる
-				cleared = true;
-				// クリアアニメーションを開始
-				clearAnimation.start({
-					foundations[0].back().suit,
-					foundations[1].back().suit,
-					foundations[2].back().suit,
-					foundations[3].back().suit,
-				});
-			}
+		// もしクリアしたら
+		if (isCleared())
+		{
+			// クリアアニメーションを開始する
+			m_victoryAnimation.start({
+				m_foundations[0].back().suit,
+				m_foundations[1].back().suit,
+				m_foundations[2].back().suit,
+				m_foundations[3].back().suit,
+			}, FoundationRegions);
 		}
 	}
 
-	// 描画
+	/// @brief ゲームを描画します。
 	void draw() const
 	{
-		// 枠の描画
-		StockRegion.drawFrame(5, ColorF{ Palette::White, 0.2 });
-		WasteRegion.drawFrame(5, ColorF{ Palette::White, 0.2 });
-		for (auto&& region : FoundationRegions)
-		{
-			region.drawFrame(5, ColorF{ Palette::White, 0.2 });
-		}
+		drawTable();
 
-		// クリアアニメーションの描画
-		if (cleared)
+		// クリアアニメーションを描画する
+		if (isCleared())
 		{
-			clearAnimation.draw(pack);
+			m_victoryAnimation.draw(m_pack);
 			return;
 		}
 
-		// 山札の描画
-		if (stock.size())
+		// 山札を描画する
+		if (m_stock)
 		{
-			if (stockTop == stock.end())
-			{
-				emoji(U'🔃').drawAt(StockRegion.center(), ColorF{ Palette::White, 0.5 });
-			}
-			else
-			{
-				pack(stock.front()).drawBack(StockRegion.pos);
-			}
+			m_pack(m_stock.back()).drawBack(StockRegion.pos);
 		}
 
-		// 捨て札の描画
-		if (stockTop != stock.begin())
+		// 捨て札を描画する
+		if (m_waste)
 		{
-			pack(*std::prev(stockTop)).draw(WasteRegion.pos);
+			m_pack(m_waste.back()).draw(WasteRegion.pos);
 		}
 
-		// 組札の描画
-		for (auto i : step(4))
+		// 組札を描画する
+		for (size_t i = 0; i < m_foundations.size(); ++i)
 		{
-			auto&& region = FoundationRegions[i];
-			auto&& foundation = foundations[i];
-			if (foundation.size())
+			if (const auto& foundation = m_foundations[i])
 			{
-				pack(foundation.back()).draw(region.pos);
+				m_pack(foundation.back()).draw(FoundationRegions[i].pos);
 			}
 		}
 
-		// 場札の描画
-		for (auto i : step(7))
+		// 場札を描画する
+		for (size_t i = 0; i < m_tableauPiles.size(); ++i)
 		{
-			auto&& pile = tableauPiles[i];
 			Vec2 pos = TableauBottomRegions[i].pos;
-			for (auto&& card : pile)
+
+			for (const auto& card : m_tableauPiles[i])
 			{
-				pack(card).draw(pos);
+				m_pack(card).draw(pos);
 				pos.y += TableauPileOffset;
 			}
 		}
 
 		// ドラッグ中のカードの描画
-		dragger.draw(pack);
+		m_dragger.draw(m_pack, TableauPileOffset);
+
+		if (shouldChangeCursor())
+		{
+			// カーソルを手の形状にする
+			Cursor::RequestStyle(CursorStyle::Hand);
+		}
 	}
 
 private:
-	// カードの更新
-	void updateCards()
+
+	/// @brief カードの幅（ピクセル）
+	static constexpr double CardWidth = 80;
+
+	/// @brief カードのサイズ（ピクセル）
+	static constexpr Vec2 CardSize{ CardWidth, CardWidth * Math::Phi };
+
+	/// @brief 重なった場札の表示オフセット（ピクセル）
+	static constexpr double TableauPileOffset = 25;
+
+	/// @brief 山札を置く領域
+	static constexpr RectF StockRegion{ Arg::center(100, 100), CardSize };
+
+	/// @brief 捨て札を置く領域
+	static constexpr RectF WasteRegion{ Arg::center(200, 100), CardSize };
+
+	/// @brief 組札を置く領域
+	static constexpr std::array<RectF, 4> FoundationRegions{
+		RectF{ Arg::center(400, 100), CardSize },
+		RectF{ Arg::center(500, 100), CardSize },
+		RectF{ Arg::center(600, 100), CardSize },
+		RectF{ Arg::center(700, 100), CardSize },
+	};
+
+	/// @brief 先頭の場札の領域
+	static constexpr std::array<RectF, 7> TableauBottomRegions{
+		RectF{ Arg::center(100, 250), CardSize },
+		RectF{ Arg::center(200, 250), CardSize },
+		RectF{ Arg::center(300, 250), CardSize },
+		RectF{ Arg::center(400, 250), CardSize },
+		RectF{ Arg::center(500, 250), CardSize },
+		RectF{ Arg::center(600, 250), CardSize },
+		RectF{ Arg::center(700, 250), CardSize },
+	};
+
+	/// @brief カードの描画用情報
+	PlayingCard::Pack m_pack;
+
+	/// @brief 山札
+	CardList m_stock;
+
+	/// @brief 捨て札
+	CardList m_waste;
+
+	/// @brief 場札列
+	std::array<CardList, 7> m_tableauPiles;
+
+	/// @brief 組札列
+	std::array<CardList, 4> m_foundations;
+
+	/// @brief ドラッグ中のカードの管理
+	CardDragger m_dragger;
+
+	/// @brief 勝利時のアニメーション
+	VictoryAnimation m_victoryAnimation;
+
+	/// @brief 各エリアの枠を描きます。
+	void drawTable() const
 	{
-		// もしマウスの操作がなければ
-		if (not MouseL.down() && not MouseL.up())
+		// 山札エリアの枠を描画する
+		StockRegion.drawFrame(5, ColorF{ Palette::White, 0.2 });
+
+		// 捨て札エリアの枠を描画する
+		WasteRegion.drawFrame(5, ColorF{ Palette::White, 0.2 });
+
+		// 組札エリアの枠を描画する
+		for (const auto& region : FoundationRegions)
 		{
-			// 何もせず終了
-			return;
+			region.drawFrame(5, ColorF{ Palette::White, 0.2 });
 		}
 
+		// 捨て札の回収ボタンを描画する
+		if ((not m_stock) && m_waste)
+		{
+			SimpleGUI::GetFont()(U"\U000F17B4")
+				.drawAt(60, StockRegion.center(), ColorF{ 1.0, 0.5 });
+		}
+	}
+
+	/// @brief カーソルの形状を手のアイコンにする必要があるかを返します。
+	/// @return カーソルの形状を手のアイコンにする必要がある場合 true, それ以外の場合は false
+	[[nodiscard]]
+	bool shouldChangeCursor() const
+	{
+		// ドラッグ中である
+		if (m_dragger.hasItem())
+		{
+			return true;
+		}
+
+		// 山札か捨て札の上にある
+		if (((m_stock || m_waste) && StockRegion.mouseOver())
+			|| (m_waste && WasteRegion.mouseOver()))
+		{
+			return true;
+		}
+
+		// 組札の上にある
+		for (size_t i = 0; i < m_foundations.size(); ++i)
+		{
+			if (const auto& foundation = m_foundations[i])
+			{
+				if (FoundationRegions[i].mouseOver())
+				{
+					return true;
+				}
+			}
+		}
+
+		// 操作可能な場札の上にある
+		for (size_t i = 0; i < m_tableauPiles.size(); ++i)
+		{
+			const auto& pile = m_tableauPiles[i];
+			RectF region = TableauBottomRegions[i].movedBy(0, (TableauPileOffset * pile.size()));
+
+			for (int32 k = static_cast<int32>(pile.size() - 1); 0 <= k; --k)
+			{
+				auto& card = pile[k];
+				region.y -= TableauPileOffset;
+
+				if ((not card.isFaceSide) && (k != static_cast<int32>(pile.size() - 1)))
+				{
+					break;
+				}
+
+				if (region.mouseOver())
+				{
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/// @brief カードを更新します。
+	void updateCards()
+	{
 		// もし山札がクリックされたら
 		if (StockRegion.leftClicked())
 		{
-			// もし山札を最後までめくっていたら
-			if (stockTop == stock.end())
+			if (not m_stock) // もし山札を最後までめくっていたら
 			{
-				// 山札をもとに戻す
-				stockTop = stock.begin();
+				// 捨て札を山札に戻す
+				m_stock = m_waste.reversed();
+				m_waste.clear();
+
+				// 山札はすべて裏向きにする
+				for (auto& card : m_stock)
+				{
+					card.flip();
+				}
 			}
-			// そうでなければ
 			else
 			{
-				// 一枚めくる
-				++stockTop;
+				// 山札を 1 枚捨て札に送る
+				m_waste << m_stock.back();
+				m_stock.pop_back();
+
+				// 新しい捨て札は表向きにする
+				m_waste.back().flip();
 			}
+
 			return;
 		}
 
-		// もし捨て札がクリックされたら
-		if (WasteRegion.leftClicked())
+		// カードのドラッグ開始
+		if ((not m_dragger.hasItem()) && MouseL.down())
 		{
-			// もし捨て札があれば
-			if (stockTop != stock.begin())
+			// 捨て札の移動
+			if (m_waste && WasteRegion.leftClicked())
 			{
-				// 一番上の捨て札をドラッグする
-				dragger.dragStart(stock, std::prev(stockTop), WasteRegion.pos);
-			}
-			return;
-		}
-
-		// ドラッグ中のカードの領域
-		const RectF dragRegion{ Arg::center = Cursor::PosF(), CardSize };
-
-		for (auto i : step(4))
-		{
-			auto&& region = FoundationRegions[i];
-			auto&& foundation = foundations[i];
-
-			// もし組札がクリックされたら
-			if (region.leftClicked())
-			{
-				// もし組札があれば
-				if (foundation.size())
-				{
-					// 組札の一番上をドラッグ開始
-					dragger.dragStart(foundation, std::prev(foundation.end()), region.pos);
-				}
+				// 一番上の捨て札をドラッグ開始する
+				m_dragger.drag(m_waste, 1, WasteRegion.pos);
 				return;
 			}
 
-			// もし組札とドラッグ中のカードが重なっていたら
-			if (region.intersects(dragRegion))
+			// 組札の移動
+			for (size_t i = 0; i < m_foundations.size(); ++i)
 			{
-				// もし1枚のカードがドロップされたら
-				if (MouseL.up() && dragger.isDragging() && dragger.cardList().size() == 1)
+				const auto& region = FoundationRegions[i];
+				auto& foundation = m_foundations[i];
+
+				// もし組札がクリックされたら
+				if (foundation && region.leftClicked())
 				{
-					auto&& top = foundation.back();
-					auto&& droppedCard = dragger.cardList().front();
-					// もし置けるカードなら
-					if (foundation.empty()
-						? droppedCard.isAce()
-						: droppedCard.suit == top.suit && droppedCard.rank == top.rank + 1)
+					// 組札の一番上をドラッグ開始
+					m_dragger.drag(foundation, 1, region.pos);
+					return;
+				}
+			}
+
+			// 場札の移動
+			for (size_t i = 0; i < m_tableauPiles.size(); ++i)
+			{
+				auto& pile = m_tableauPiles[i];
+				RectF region = TableauBottomRegions[i].movedBy(0, (TableauPileOffset * pile.size()));
+
+				for (int32 k = static_cast<int32>(pile.size() - 1); 0 <= k; --k)
+				{
+					auto& card = pile[k];
+					region.y -= TableauPileOffset;
+
+					// もし場札のカードがクリックされたら
+					if (region.leftClicked())
 					{
-						// 組札の一番上に置く
-						dragger.drop(foundation, foundation.end());
+						if (card.isFaceSide) // もしそのカードが表なら
+						{
+							// そのカードからドラッグ開始
+							m_dragger.drag(pile, static_cast<int32>(pile.size() - k), region.pos);
+						}
+						else if (k == static_cast<int32>(pile.size() - 1)) // そうでなく、それが一番上のカードなら
+						{
+							// そのカードを表に向ける
+							card.isFaceSide = true;
+						}
+
 						return;
 					}
 				}
 			}
 		}
 
-		for (auto i : step(7))
+		// ドラッグ中のカードのドロップ
+		if (m_dragger.hasItem() && MouseL.up())
 		{
-			auto&& pile = tableauPiles[i];
-			RectF region = TableauBottomRegions[i].movedBy(0, TableauPileOffset * pile.size());
+			// ドラッグ中のカードの領域
+			const RectF dragRegion{ Arg::center = Cursor::PosF(), CardSize };
 
-			// もし新しい場札の領域とドラッグ中のカードが重なっていたら
-			if (region.intersects(dragRegion))
+			// ドロップしたカードの先頭カード
+			const auto& droppedFront = m_dragger.items().front();
+
+			// 組札へのドロップ
+			if (m_dragger.items().size() == 1)
 			{
-				// もしカードがドロップされたら
-				if (MouseL.up() && dragger.isDragging())
+				for (size_t i = 0; i < m_foundations.size(); ++i)
 				{
-					auto&& top = pile.back();
-					auto&& droppedCard = dragger.cardList().front();
-					// もし置けるカードなら
-					if (pile.empty()
-						? droppedCard.isKing()
-						: droppedCard.isBlack() != top.isBlack() && droppedCard.rank == top.rank - 1)
+					const auto& region = FoundationRegions[i];
+					auto& foundation = m_foundations[i];
+
+					// もし組札とドラッグ中のカードが重なっていたら
+					if (region.intersects(dragRegion))
+					{
+						if ((foundation.isEmpty() && droppedFront.isAce())
+							|| (foundation && (foundation.back().suit == droppedFront.suit) && ((foundation.back().rank + 1) == droppedFront.rank)))
+						{
+							// 組札の一番上に置く
+							m_dragger.drop(foundation);
+							return;
+						}
+					}
+				}
+			}
+
+			// 場札へのドロップ
+			for (size_t i = 0; i < m_tableauPiles.size(); ++i)
+			{
+				auto& pile = m_tableauPiles[i];
+				RectF region = TableauBottomRegions[i].movedBy(0, TableauPileOffset * pile.size());
+
+				// もし新しい場札の領域とドラッグ中のカードが重なっていたら
+				if (region.intersects(dragRegion))
+				{
+					if ((pile.isEmpty() && droppedFront.isKing())
+						|| (pile && (pile.back().isBlack() != droppedFront.isBlack()) && ((pile.back().rank - 1) == droppedFront.rank)))
 					{
 						// 場札の一番上に置く
-						dragger.drop(pile, pile.end());
+						m_dragger.drop(pile);
 						return;
 					}
 				}
 			}
 
-			for (auto it = pile.rbegin(); it != pile.rend(); ++it)
-			{
-				region.y -= TableauPileOffset;
-
-				// もし場札のカードがクリックされたら
-				if (region.leftClicked())
-				{
-					// もしそのカードが表なら
-					if (it->isFaceSide)
-					{
-						// そのカードから上をドラッグ開始
-						dragger.dragStart(pile, std::prev(it.base()), pile.end(), region.pos);
-					}
-					// そうでなく、それが一番上のカードなら
-					else if (it == pile.rbegin())
-					{
-						// そのカードを表に向ける
-						it->isFaceSide = true;
-					}
-					return;
-				}
-			}
+			// ドロップ先が無かった場合, ドラッグを中止
+			m_dragger.cancel();
 		}
 	}
 };
 
-
 void Main()
 {
-	// 画面サイズの設定
+	// 画面サイズを設定する
 	Window::Resize(800, 800);
-	// 背景色の設定
+
+	// 背景色を設定する
 	Scene::SetBackground(Palette::Darkgreen);
 
-	// クロンダイク
+	// クロンダイクのゲームを作成する
 	Klondike game;
-	game.start();
 
 	while (System::Update())
 	{
 		game.update();
+
 		game.draw();
+
+		if (SimpleGUI::Button(U"New Game", Vec2{ 40, 740 }))
+		{
+			game.reset();
+		}
 	}
 }
