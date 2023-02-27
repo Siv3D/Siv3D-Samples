@@ -13,10 +13,10 @@
 | タブ | HP バー | AI オセロ 🏆 |
 | Tabs | HP bar | AI Othello |
 
-| <a href="Samples/AudioCrossfade"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/AudioCrossfade/Screenshot/2.png" width="250px"></a> |
-|:--:|
-| BGM クロスフェード 🏆 |
-| Audio Crossfade |
+| <a href="Samples/AudioCrossfade"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/AudioCrossfade/Screenshot/2.png" width="250px"></a> | <a href="Samples/AudioCrossfade"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Klondike/Screenshot/2.png" width="250px"></a> |
+|:--:|:--:|
+| BGM クロスフェード 🏆 | クロンダイク 🏆 |
+| Audio Crossfade | Klondike |
 
 🏆 マークはユーザ投稿サンプルです。
 
@@ -49,7 +49,7 @@
 |:--------------|:---------------------------------------------|
 | Author        | 作者                                         |
 | Affiliation   | 所属（空欄可）                               |
-| Siv3D Version | v0.6.5 ← 動作を確認した Siv3D バージョン              |
+| Siv3D Version | v0.6.6 ← 動作を確認した Siv3D バージョン              |
 | Platform      | Windows, macOS, Linux, Web のうち、動作を確認したもの |
 
 ## 説明 | Description
