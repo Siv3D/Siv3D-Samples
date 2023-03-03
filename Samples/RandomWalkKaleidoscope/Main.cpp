@@ -1,38 +1,27 @@
-﻿# include <Siv3D.hpp>
+# include <Siv3D.hpp>
 
 void Main()
 {
-	////////////////////////////////
-	// 定数(いろいろいじってみてください。)
-	////////////////////////////////
-
 	// キャンバスのサイズ
-	constexpr Size canvasSize{ 600, 600 };
+	constexpr Size CanvasSize{ 600, 600 };
 
 	// 分割数
-	constexpr int32 N = 12;
+	int32 N = 12;
 
 	// 背景色
-	constexpr Color backgroundColor = Palette::Black;
+	constexpr Color BackgroundColor = Palette::Black;
 
-	// 一回の移動で動く距離の範囲
-	constexpr double distance = 10.0;
+	// 一回の移動の最大距離
+	constexpr double MaxWalkDistance = 10.0;
 
 	// 移動間隔（秒）
-	constexpr double spawnTime = 1.0 / 60.0;
+	constexpr double UpdateInterval = (1.0 / 60.0);
 
-	////////////////////////////////
-	// 初期化
-	////////////////////////////////
-
-	// ウィンドウをキャンバスのサイズに
-	Window::Resize(canvasSize);
-
-	// 蓄積された時間（秒）
-	double accumulator = 0.0;
+	// ウィンドウをキャンバスのサイズにする
+	Window::Resize(CanvasSize);
 
 	// 書き込み用の画像
-	Image image{ canvasSize, backgroundColor };
+	Image image{ CanvasSize, BackgroundColor };
 
 	// 画像を表示するための動的テクスチャ
 	DynamicTexture texture{ image };
@@ -40,25 +29,32 @@ void Main()
 	// ランダムウォーカーの座標
 	Vec2 walker{ 0,0 };
 
+	// 蓄積された時間（秒）
+	double accumulatedTime = 0.0;
+
 	while (System::Update())
 	{
-		// spawnTime(秒)ごとに移動
-		for (accumulator += Scene::DeltaTime(); spawnTime <= accumulator; accumulator -= spawnTime)
+		accumulatedTime += Scene::DeltaTime();
+
+		// UpdateInterval が経過するたびに移動
+		while (UpdateInterval <= accumulatedTime)
 		{
-
 			// 移動前の座標
-			const Vec2 begin = walker;
+			const Vec2 from = walker;
 
-			// 移動
-			walker += RandomVec2(distance);
+			// 座標をランダムに移動させる
+			walker += (RandomVec2() * Random(MaxWalkDistance));
 
 			// 移動後の座標
-			const Vec2 end = walker;
+			const Vec2 to = walker;
 
-			for (auto i : step(N))
+			// 線の色
+			const HSV color{ (0.5 * Scene::Time() / UpdateInterval), 0.7 };
+
+			for (int32 i = 0; i < N; ++i)
 			{
-				// 円座標に変換
-				std::array<Circular, 2> cs = { begin, end };
+				// 円座標に変換する
+				std::array<Circular, 2> cs = { from, to };
 
 				for (auto& c : cs)
 				{
@@ -66,28 +62,31 @@ void Main()
 					c.theta = IsEven(i) ? (-c.theta - 2_pi / N * (i - 1)) : (c.theta + 2_pi / N * i);
 				}
 
-				// ずらした位置をもとに、画像に線を書き込む
-				Line{ cs[0], cs[1] }.moveBy(Scene::Center())
-					.paint(image, 1, HSV{ Scene::Time()/ spawnTime,0.7 });
+				// ずらした位置をもとに, 画像に線を書き込む
+				Line{ cs[0], cs[1] }.moveBy(CanvasSize / 2)
+					.overwrite(image, 1, color);
 			}
 
+			accumulatedTime -= UpdateInterval;
 		}
 
-		// Rキーを押すとリセット
-		if (KeyR.down())
+		// 左クリックでリセットする
+		if (MouseL.down())
 		{
 			// 背景色で塗りつぶす
-			image.fill(backgroundColor);
+			image.fill(BackgroundColor);
 
-			// ランダムウォーカーの座標を(0,0)に戻す
-			walker = { 0,0 };
+			// ランダムウォーカーの座標を (0,0) に戻す
+			walker.clear();
+
+			// 分割数をランダムな 4～24 の間の偶数に変更する
+			N = (Random(2, 12) * 2);
 		}
 
-		// 書き込んだ画像でテクスチャを更新
+		// 書き込んだ画像でテクスチャを更新する
 		texture.fillIfNotBusy(image);
 
 		// テクスチャを描く
 		texture.draw();
-
 	}
 }
