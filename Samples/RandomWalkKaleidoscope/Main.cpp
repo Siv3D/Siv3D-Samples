@@ -49,7 +49,7 @@ void Main()
 			const Vec2 to = walker;
 
 			// 線の色
-			const HSV color{ (0.5 * Scene::Time() / UpdateInterval), 0.7 };
+			const HSV color{ (0.5 * Scene::Time() / UpdateInterval), 0.7, 0.8 };
 
 			for (int32 i = 0; i < N; ++i)
 			{
