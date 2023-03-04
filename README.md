@@ -13,10 +13,10 @@
 | タブ | HP バー | AI オセロ 🏆 |
 | Tabs | HP bar | AI Othello |
 
-| <a href="Samples/AudioCrossfade"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/AudioCrossfade/Screenshot/2.png" width="250px"></a> | <a href="Samples/Klondike"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Klondike/Screenshot/2.png" width="250px"></a> |
-|:--:|:--:|
-| BGM クロスフェード 🏆 | クロンダイク 🏆 |
-| Audio Crossfade | Klondike |
+| <a href="Samples/AudioCrossfade"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/AudioCrossfade/Screenshot/2.png" width="250px"></a> | <a href="Samples/Klondike"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Klondike/Screenshot/2.png" width="250px"></a> | <a href="Samples/RandomWalkKaleidoscope"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/RandomWalkKaleidoscope/Screenshot/2.png" width="250px"></a> |
+|:--:|:--:|:--:|
+| BGM クロスフェード 🏆 | クロンダイク 🏆 | 万華鏡ランダムウォーク 🏆 |
+| Audio Crossfade | Klondike | Random Walk Kaleidoscope |
 
 🏆 マークはユーザ投稿サンプルです。
 
