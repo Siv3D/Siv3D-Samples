@@ -177,7 +177,7 @@ void Main()
 		SimpleGUI::RadioButtons(index, options, Vec2{ 30, 320 }, 180);
 
 		if (SimpleGUI::Button(U"物語を作成", Vec2{ 30, 500 }, 180,
-			(keywords[0].text && keywords[1].text && keywords[2].text && keywords[3].text))) // 4 つのキーワードが入力されている
+			(keywords[0].text && keywords[1].text && keywords[2].text && keywords[3].text && (not task.isValid())))) // 4 つのキーワードが入力されている
 		{
 			ClearPrint();
 			story.reset();
