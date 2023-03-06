@@ -18,7 +18,7 @@
 | BGM クロスフェード 🏆 | クロンダイク 🏆 | 万華鏡ランダムウォーク 🏆 |
 | Audio Crossfade | Klondike | Random Walk Kaleidoscope |
 
-| <a href="Samples/GPT3Story"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Minesweeper/GPT3Story/1.png" width="250px"></a> |
+| <a href="Samples/GPT3Story"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/GPT3Story/Screenshot/1.png" width="250px"></a> |
 |:--:|
 | AI による物語生成 |
 | AI Story Generator |
