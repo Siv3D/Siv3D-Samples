@@ -260,4 +260,9 @@ void Main()
 			}
 		}
 	}
+
+	if (task.isValid())
+	{
+		task.wait();
+	}
 }
