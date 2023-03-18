@@ -1,53 +1,4 @@
-# include <Siv3D.hpp> // OpenSiv3D v0.6.6
-
-namespace s3d::ChatGPT
-{
-	[[nodiscard]]
-	inline String Chat(const String input, const String SECRET_API_KEY)
-	{
-		if (not SECRET_API_KEY)
-		{
-			Print << U"API key is empty.";
-			return{};
-		}
-
-		JSON chat;
-		chat[U"model"] = U"gpt-3.5-turbo";
-		chat[U"messages"].push_back({ { U"role", U"user" }, { U"content", input } });
-		const std::string data = chat.formatUTF8();
-
-		const HashTable<String, String> headers =
-		{
-			{ U"Content-Type", U"application/json" },
-			{ U"Authorization", (U"Bearer " + SECRET_API_KEY) },
-		};
-
-		const FilePath SavePath = U"result.json";
-
-		if (const auto response = SimpleHTTP::Post(U"https://api.openai.com/v1/chat/completions", headers, data.data(), data.size(), SavePath))
-		{
-			if (not response.isOK())
-			{
-				Print << U"status code: {}"_fmt(FromEnum(response.getStatusCode()));
-				return{};
-			}
-
-			const JSON result = JSON::Load(SavePath);
-			return result[U"choices"][0][U"message"][U"content"].getString();
-		}
-		else
-		{
-			Print << U"FAILED";
-			return{};
-		}
-	}
-
-	[[nodiscard]]
-	inline AsyncTask<String> ChatAsync(const String input, const String SECRET_API_KEY)
-	{
-		return Async(Chat, input, SECRET_API_KEY);
-	}
-}
+# include <Siv3D.hpp> // OpenSiv3D v0.6.7
 
 /// @brief 物語
 struct Story
@@ -126,8 +77,8 @@ void Main()
 
 	// API キーは秘密にする。
 	// 誤って API キーをコミットしないよう、環境変数に API キーを設定すると良い（適用には PC の再起動が必要）
-	const String SECRET_API_KEY = EnvironmentVariable::Get(U"MY_OPENAI_API_KEY");
-	//const String SECRET_API_KEY = U"sk-?????????????????????????????????????????????????";
+	const String API_KEY = EnvironmentVariable::Get(U"MY_OPENAI_API_KEY");
+	//const String API_KEY = U"sk-?????????????????????????????????????????????????";
 
 	// 物語のキーワードを入力するテキストボックス
 	std::array<TextEditState, 4> keywords;
@@ -143,7 +94,7 @@ void Main()
 	Stopwatch stopwatch;
 
 	// 非同期タスク
-	AsyncTask<String> task;
+	AsyncHTTPTask task;
 
 	// 物語データ
 	Optional<Story> story;
@@ -177,7 +128,7 @@ void Main()
 		SimpleGUI::RadioButtons(index, options, Vec2{ 30, 320 }, 180);
 
 		if (SimpleGUI::Button(U"物語を作成", Vec2{ 30, 500 }, 180,
-			(keywords[0].text && keywords[1].text && keywords[2].text && keywords[3].text && (not task.isValid())))) // 4 つのキーワードが入力されている
+			(keywords[0].text && keywords[1].text && keywords[2].text && keywords[3].text && (not task.isDownloading())))) // 4 つのキーワードが入力されている
 		{
 			ClearPrint();
 			story.reset();
@@ -185,18 +136,18 @@ void Main()
 			const String text = UR"(「{}」「{}」「{}」「{}」をテーマにした{}の映画の物語を1つ作ってください。また、短いタイトルと、物語に沿った絵文字、肯定的なレビュー、批判的なレビューを書いてください。ただし、次のような JSON 形式で日本語で出力してください。回答には JSON データ以外を含めないでください。
 {{　"title": "", "story1" : "", "story2" : "", "story3" : "", "emojis" : "", "review_positive" : "", "review_negative" : "" }})"_fmt(
 				keywords[0].text, keywords[1].text, keywords[2].text, keywords[3].text, options[index]);
-			task = ChatGPT::ChatAsync(text, SECRET_API_KEY);
+			task = OpenAI::Chat::CompleteAsync(API_KEY, text);
 		}
 
 		// ChatGPT の応答を待つ間はローディング画面を表示する
-		if (task.isValid())
+		if (task.isDownloading())
 		{
 			Hourglass.rotated(Scene::Time() * 120_deg).drawAt(StoryRect.centerX(), Scene::Center().y);
 		}
 
-		if (task.isReady())
+		if (task.isReady() && task.getResponse().isOK())
 		{
-			if (const String output = task.get())
+			if (const String output = OpenAI::Chat::GetContent(task.getAsJSON()))
 			{
 				// ChatGPT の返答メッセージに含まれる JSON をパースする
 				if (const JSON json = JSON::Parse(output))
@@ -259,10 +210,5 @@ void Main()
 				Reviwer2.scaled(0.8).drawAt(Review2Rect.bl().movedBy(-10, -36));
 			}
 		}
-	}
-
-	if (task.isValid())
-	{
-		task.wait();
 	}
 }

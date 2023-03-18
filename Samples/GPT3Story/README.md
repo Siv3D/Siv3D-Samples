@@ -4,7 +4,7 @@
 |:--------------|:---------------------------------------------|
 | Author        | [Ryo Suzuki](https://twitter.com/Reputeless) |
 | Affiliation   | Siv3D                                        |
-| Siv3D Version | v0.6.6                                       |
+| Siv3D Version | v0.6.7                                       |
 | Platform      | Windows, macOS, Linux                        |
 
 ## 説明 | Description
