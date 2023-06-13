@@ -1,12 +1,24 @@
 # include <Siv3D.hpp> // OpenSiv3D v0.6.10
 
 // Google Apps ScriptのURL
-constexpr static StringView ScoreboardAPIUrl = U"https://script.google.com/macros/s/AKfycbw3cQZuo5XKxCgm5vH9ig3rd4A1BG5SVm6eai-3hsT-hdEEYx5lRz20lcBv_dbxuUq-eg/exec";
+constexpr static StringView ScoreboardAPIUrl = U"https://script.google.com/macros/s/AKfycbzV8MQMFuqu8QJPfFbVwB5h5a0Iq200ylO8skFx6htyRrVpo8M4J7N8eRRcaaat5k7ilw/exec";
+
+struct ScoreboardRecord
+{
+	/// @brief ユーザー名
+	String username;
+
+	/// @brief スコア
+	double score;
+
+	/// @brief 追加データ
+	JSON data;
+};
 
 /// @brief Jsonデータをスコアボードとして読み込む
 /// @param json Jsonデータ
 /// @param scoreboard 更新するスコアボード
-void ParseScoreboardJson(const JSON& json, Array<std::pair<String, double>>& scoreboard)
+void ParseScoreboardJson(const JSON& json, Array<ScoreboardRecord>& scoreboard)
 {
 	scoreboard.clear();
 
@@ -33,17 +45,22 @@ void ParseScoreboardJson(const JSON& json, Array<std::pair<String, double>>& sco
 			continue;
 		}
 
-		scoreboard.emplace_back(std::pair<String, double>{
-			usernameJson.get<String>(),
-			scoreJson.get<double>()
+		scoreboard.emplace_back(ScoreboardRecord{
+			.username = usernameJson.get<String>(),
+			.score = scoreJson.get<double>()
 		});
+
+		if (value.contains(U"data"))
+		{
+			scoreboard.back().data = value[U"data"];
+		}
 	}
 }
 
 /// @brief スコアボードを整形したSimpleTableを作成
 /// @param scoreboard スコアボード
 /// @return 整形したSimpleTable
-SimpleTable CreateScoreboardTable(const Array<std::pair<String, double>>& scoreboard)
+SimpleTable CreateScoreboardTable(const Array<ScoreboardRecord>& scoreboard)
 {
 	SimpleTable table{ 3, SimpleTable::Style{ .variableWidth = true } };
 
@@ -52,10 +69,10 @@ SimpleTable CreateScoreboardTable(const Array<std::pair<String, double>>& scoreb
 	});
 
 	int32 rank = 1;
-	for (auto& [username, score] : scoreboard)
+	for (auto& record : scoreboard)
 	{
 		table.push_back_row(Array<String>{
-			Format(rank), username, Format(score)
+			Format(rank), record.username, Format(record.score)
 		});
 		rank++;
 	}
@@ -79,14 +96,20 @@ AsyncHTTPTask GetScoreboardJsonAsync(int32 count = 10)
 /// @brief 新しいスコアを送信するタスクを作成
 /// @param username ユーザー名
 /// @param score スコア
+/// @param data 追加データ
 /// @return タスク
-AsyncHTTPTask PushScoreAsync(const StringView username, double score)
+AsyncHTTPTask PushScoreAsync(const StringView username, double score, JSON data = JSON::Invalid())
 {
 	String requestUrl = U"{}?username={}&score={}"_fmt(
 		ScoreboardAPIUrl,
 		PercentEncode(username),
 		PercentEncode(Format(score))
 	);
+	if (data)
+	{
+		requestUrl.append(U"&data=");
+		requestUrl.append(PercentEncode(data.formatMinimum()));
+	}
 	HashTable<String, String> headers = {
 		{U"Content-Type", U"application/x-www-form-urlencoded; charset=UTF-8"}
 	};
@@ -134,7 +157,7 @@ void Main()
 
 			if (response.isOK())
 			{
-				Array<std::pair<String, double>> scoreboard;
+				Array<ScoreboardRecord> scoreboard;
 				ParseScoreboardJson(scoreboardGetTask->getAsJSON(), scoreboard);
 				scoreboardTable = CreateScoreboardTable(scoreboard);
 			}

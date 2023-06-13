@@ -38,8 +38,9 @@ function parseScore(value)
  * スコアを追加
  * @param {string} username ユーザー名
  * @param {number} score スコア
+ * @param {any} data 追加データ
  */
-function pushScore(username, score)
+function pushScore(username, score, data=undefined)
 {
   // 日本時間、現在のタイムスタンプを作成
   let timestamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
@@ -56,7 +57,7 @@ function pushScore(username, score)
 
   // スコアデータを追加
   ScoreboardSheet.appendRow([
-    timestamp, username, score
+    timestamp, username, score, JSON.stringify(data)
   ]);
 }
 
@@ -68,7 +69,7 @@ function pushScore(username, score)
 function getTopScores(count=10)
 {
   // クエリ文字列を設定
-  query(`select B, C where A is not null order by C desc limit ${count}`);
+  query(`select B, C, D where A is not null order by C desc limit ${count}`);
 
   let srcData = ResultSheet.getDataRange().getValues();
   let labelList = srcData.shift();
@@ -93,6 +94,17 @@ function getTopScores(count=10)
     if ("score" in record)
     {
       record.score = parseScore(record.score);
+    }
+    if ("data" in record)
+    {
+      try
+      {
+        record.data = JSON.parse(record.data);
+      }
+      catch(SyntaxError)
+      {
+        record.data = undefined;
+      }
     }
     return record;
   });
@@ -128,29 +140,42 @@ function doGet(e)
  */
 function doPost(e)
 {
-  let error = "";
+  let errorMessages = [];
+
+  let parsedData = undefined;
   if (!("username" in e.parameter))
   {
-    error += "パラメータusernameが存在しません\n";
+    errorMessages.push("パラメータusernameが存在しません");
   }
   if (!("score" in e.parameter))
   {
-    error += "パラメータscoreが存在しません\n";
+    errorMessages.push("パラメータscoreが存在しません");
   }
-
-  if (error.length > 0)
+  if ("data" in e.parameter)
   {
-    throw Error(error);
+    try
+    {
+      parsedData = JSON.parse(e.parameter.data);
+    }
+    catch (SyntaxError)
+    {
+      errorMessages.push("パラメータdataの文法が間違っています");
+    }
   }
 
-  pushScore(e.parameter.username, e.parameter.score);
+  if (errorMessages.length > 0)
+  {
+    throw Error(errorMessages.join("\n"));
+  }
+
+  pushScore(e.parameter.username, e.parameter.score, parsedData);
 
   return ContentService.createTextOutput("OK");
 }
 
 
 
-function pushScoreTest()
+function pushScoreTest1()
 {
   const users = [ "太郎", "一郎", "二郎", "三郎" ];
   let user = users[Math.floor(Math.random() * users.length)];
@@ -160,6 +185,13 @@ function pushScoreTest()
 function pushScoreTest2()
 {
   pushScore("", Math.random() * 100);
+}
+
+function pushScoreTest3()
+{
+  const users = [ "太郎", "一郎", "二郎", "三郎" ];
+  let user = users[Math.floor(Math.random() * users.length)];
+  pushScore(user, Math.random() * 100, {hoge1:"test"});
 }
 
 function getTopScoresTest()
