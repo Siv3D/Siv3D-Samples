@@ -1,7 +1,7 @@
 # include <Siv3D.hpp> // OpenSiv3D v0.6.10
 
 // Google Apps ScriptのURL
-constexpr static StringView ScoreboardAPIUrl = U"https://script.google.com/macros/s/AKfycbzV8MQMFuqu8QJPfFbVwB5h5a0Iq200ylO8skFx6htyRrVpo8M4J7N8eRRcaaat5k7ilw/exec";
+constexpr static StringView ScoreboardAPIUrl = U"https://script.google.com/macros/s/AKfycbwyGtLLG628VDu_-0wTZDHVyEdbja0xgWFMoZfc_tjxEfYn69QrZgTDyHS1t2gbffEJ/exec";
 
 struct ScoreboardRecord
 {
