@@ -179,13 +179,10 @@ Optional<Point> GetCursorIndex(const Size& size, int32 tileSize, const Point& of
 
 void Main()
 {
-	constexpr Size GridSize{ 20, 20 };
-	constexpr int32 TileSize = 32;
-	constexpr Point LayerOffset{ 40, 40 };
-
 	Window::Resize(1280, 720);
 	Scene::SetBackground(ColorF{ 0.75 });
 	const Texture baseTexture{ U"base.png" };
+
 	const Array<AutoTile> autoTiles =
 	{
 		AutoTile{ Image{ U"a.png" } },
@@ -195,8 +192,19 @@ void Main()
 	};
 	size_t autoTileIndex = 0;
 
+	// マップのセルの数
+	constexpr Size GridSize{ 20, 20 };
+
+	// マップを描画するときのオフセット
+	constexpr Point LayerOffset{ 40, 40 };
+
+	// オートタイルの有無を格納する二次元配列
 	Grid<uint32> grid(GridSize, 0);
+
+	// オートタイルの接続情報を格納する二次元配列
 	Grid<AutoTileConnectivity> connectivityGrid(GridSize);
+
+	// 選択されているタイルのインデックス
 	Optional<Point> selectedTileIndex;
 
 	while (System::Update())
@@ -213,37 +221,38 @@ void Main()
 			}
 		}
 
+		// 現在のオートタイルの種類
+		const auto& autoTile = autoTiles[autoTileIndex];
+		const int32 tileSize = autoTile.getTileSize();
+
 		// カーソルでマウスオーバーしているタイルのインデックス
-		const auto cursorIndex = GetCursorIndex(grid.size(), TileSize, LayerOffset);
+		const auto cursorIndex = GetCursorIndex(grid.size(), tileSize, LayerOffset);
 
 		// クリックでタイルを編集する
 		if (cursorIndex && (MouseL.pressed() || MouseR.pressed()))
 		{
 			if (MouseL.pressed())
 			{
-				grid[*cursorIndex] = true;
+				grid[*cursorIndex] = 1;
 			}
 			else
 			{
-				grid[*cursorIndex] = false;
+				grid[*cursorIndex] = 0;
 				connectivityGrid[*cursorIndex] = AutoTileConnectivity{};
 			}
 
 			selectedTileIndex = *cursorIndex;
 		}
 
-		// 現在のオートタイルの種類
-		const auto& autoTile = autoTiles[autoTileIndex];
-
 		// マップチップを描く
 		for (int32 y = 0; y < grid.height(); ++y)
 		{
 			for (int32 x = 0; x < grid.width(); ++x)
 			{
-				baseTexture.draw(Point{ x, y } * TileSize + LayerOffset);
+				baseTexture.draw(Point{ x, y } * tileSize + LayerOffset);
 
 				// オートタイルであれば
-				if (grid.fetch(y, x, 0))
+				if (grid[y][x])
 				{
 					const auto& connectivity = connectivityGrid[y][x];
 					const uint32 c0 = (grid.fetch((y - 1), (x - 1), 1) & static_cast<uint32>(connectivity.connected[0]));
@@ -255,19 +264,19 @@ void Main()
 					const uint32 c6 = (grid.fetch((y + 1), x, 1) & static_cast<uint32>(connectivity.connected[6]));
 					const uint32 c7 = (grid.fetch((y + 1), (x + 1), 1) & static_cast<uint32>(connectivity.connected[7]));
 					const uint8 bits = static_cast<uint8>((c0 << 7) | (c1 << 6) | (c2 << 5) | (c3 << 4) | (c4 << 3) | (c5 << 2) | (c6 << 1) | c7);
-					autoTile.getTile(bits).draw(Point{ x, y } * TileSize + LayerOffset);
+					autoTile.getTile(bits).draw(Point{ x, y } * tileSize + LayerOffset);
 				}
 				else
 				{
-					Rect{ (Point{ x, y } *TileSize + LayerOffset), TileSize, }.drawFrame(1, ColorF{ 0.5 });
+					Rect{ (Point{ x, y } * tileSize + LayerOffset), tileSize }.drawFrame(1, ColorF{ 0.5 });
 				}
 			}
 		}
 
-		// カーソルがあるタイルを強調表示する
+		// カーソルが重なっているタイルを強調表示する
 		if (cursorIndex)
 		{
-			Rect{ (*cursorIndex * TileSize + LayerOffset), TileSize }.draw(ColorF{ 1.0, 0.5, 0.0, 0.5 });
+			Rect{ (*cursorIndex * tileSize + LayerOffset), tileSize }.draw(ColorF{ 1.0, 0.5, 0.0, 0.5 });
 			DrawCursor();
 		}
 
@@ -279,8 +288,9 @@ void Main()
 		// タイルが選択されている場合、その接続情報を表示する
 		if (selectedTileIndex)
 		{
-			Rect{ (*selectedTileIndex * TileSize) + LayerOffset, TileSize }.drawFrame(2, 0, Palette::Red);
+			Rect{ (*selectedTileIndex * tileSize) + LayerOffset, tileSize }.drawFrame(2, 0, Palette::Red);
 
+			// 接続情報を可視化・操作するチェックボックスを描画する
 			auto& connectivity = connectivityGrid[*selectedTileIndex];
 			for (int32 i = 0; i < 8; ++i)
 			{
