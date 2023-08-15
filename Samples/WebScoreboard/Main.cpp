@@ -132,14 +132,21 @@ double MakeRandomScore()
 /// @return ランダムなユーザー名
 String MakeRandomUserName()
 {
-	static const Array<String> words =
+	static const Array<String> words1 =
 	{
 		U"Blue", U"Red", U"Green", U"Silver", U"Gold",
-		U"Lion", U"Dragon", U"Tiger", U"Eagle", U"Shark",
-		U"Pizza", U"Curry", U"Ramen", U"Sushi", U"Salad",
+		U"Happy", U"Angry", U"Sad", U"Exciting", U"Scary",
+		U"Big", U"Small", U"Large", U"Tiny", U"Short",
 	};
 
-	return (words.choice() + words.choice() + U"{:0>4}"_fmt(Random(9999)));
+	static const Array<String> words2 =
+	{
+		U"Lion", U"Dragon", U"Tiger", U"Eagle", U"Shark",
+		U"Pizza", U"Curry", U"Ramen", U"Sushi", U"Salad",
+		U"Cat", U"Dog", U"Mouse", U"Rabbit", U"Fox",
+	};
+
+	return (U"{} {} {:0>4}"_fmt(words1.choice(), words2.choice(), Random(9999)));
 }
 
 void Main()
