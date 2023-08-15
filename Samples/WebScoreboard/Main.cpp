@@ -1,193 +1,265 @@
-# include <Siv3D.hpp> // OpenSiv3D v0.6.10
+# include <Siv3D.hpp>
 
-// Google Apps ScriptのURL
-constexpr static StringView ScoreboardAPIUrl = U"https://script.google.com/macros/s/AKfycbwyGtLLG628VDu_-0wTZDHVyEdbja0xgWFMoZfc_tjxEfYn69QrZgTDyHS1t2gbffEJ/exec";
-
-struct ScoreboardRecord
+/// @brief レコード
+struct Record
 {
 	/// @brief ユーザー名
-	String username;
+	String userName;
 
 	/// @brief スコア
 	double score;
 
-	/// @brief 追加データ
+	/// @brief 追加の情報（このサンプルでは特に使いません）
 	JSON data;
 };
 
-/// @brief Jsonデータをスコアボードとして読み込む
-/// @param json Jsonデータ
-/// @param scoreboard 更新するスコアボード
-void ParseScoreboardJson(const JSON& json, Array<ScoreboardRecord>& scoreboard)
+/// @brief 有効なレコードかどうかをチェックします。
+/// @param value レコードが格納された JSON
+/// @return 有効なレコードなら true, そうでなければ false
+bool IsValidRecord(const JSON& value)
 {
-	scoreboard.clear();
+	return (value.isObject()
+		&& value.hasElement(U"username")
+		&& value.hasElement(U"score")
+		&& value[U"username"].isString()
+		&& value[U"score"].isNumber());
+}
 
+/// @brief JSON データをリーダーボードとして読み込みます。
+/// @param json JSON データ
+/// @param dst 更新するリーダーボード
+/// @remark 読み込みに失敗した場合、dst は更新されません。
+/// @return 読み込みに成功したら true, 失敗したら false
+bool ReadLeaderboard(const JSON& json, Array<Record>& dst)
+{
 	if (not json.isArray())
 	{
-		return;
+		return false;
 	}
 
-	for (const auto& [key, value] : json)
+	Array<Record> leaderboard;
+
+	for (auto&& [key, value] : json)
 	{
-		if (not value.isObject() ||
-			not value.hasElement(U"username") ||
-			not value.hasElement(U"score"))
+		if (not IsValidRecord(value))
 		{
 			continue;
 		}
 
-		const auto& usernameJson = value[U"username"];
-		const auto& scoreJson = value[U"score"];
-
-		if (not usernameJson.isString() ||
-			not scoreJson.isNumber())
-		{
-			continue;
-		}
-
-		scoreboard.emplace_back(ScoreboardRecord{
-			.username = usernameJson.get<String>(),
-			.score = scoreJson.get<double>()
-		});
+		Record record;
+		record.userName = value[U"username"].get<String>();
+		record.score = value[U"score"].get<double>();
 
 		if (value.contains(U"data"))
 		{
-			scoreboard.back().data = value[U"data"];
+			record.data = value[U"data"];
 		}
+
+		leaderboard << std::move(record);
 	}
+
+	dst = std::move(leaderboard);
+	return true;
 }
 
-/// @brief スコアボードを整形したSimpleTableを作成
-/// @param scoreboard スコアボード
-/// @return 整形したSimpleTable
-SimpleTable CreateScoreboardTable(const Array<ScoreboardRecord>& scoreboard)
+/// @brief リーダーボードから SimpleTable を作成します。
+/// @param leaderboard リーダーボード
+/// @return SimpleTable
+SimpleTable ToTable(const Array<Record>& leaderboard)
 {
-	SimpleTable table{ 3, SimpleTable::Style{ .variableWidth = true } };
+	SimpleTable table{ { 100, 260, 140 }};
 
-	table.push_back_row(Array<String>{
-		U"順位", U"ユーザー名", U"スコア"
-	});
+	// ヘッダー行を追加する
+	table.push_back_row({ U"Rank", U"Player Name", U"Score" }, { 0, 0, 0 });
+	table.setRowBackgroundColor(0, ColorF{ 0.92 });
 
+	// 順位
 	int32 rank = 1;
-	for (auto& record : scoreboard)
+
+	// リーダーボードの内容を追加する
+	for (auto& record : leaderboard)
 	{
-		table.push_back_row(Array<String>{
-			Format(rank), record.username, Format(record.score)
-		});
-		rank++;
+		table.push_back_row({ Format(rank++), record.userName, Format(record.score) });
 	}
 
 	return table;
 }
 
-/// @brief スコアボードのJsonを取得するタスクを作成
+/// @brief サーバからリーダーボードを取得するタスクを作成します。
+/// @param url サーバの URL
 /// @param count 取得上限数
 /// @return タスク
-AsyncHTTPTask GetScoreboardJsonAsync(int32 count = 10)
+AsyncHTTPTask CreateGetTask(const URLView url, int32 count = 10)
 {
-	String requestUrl = U"{}?count={}"_fmt(
-		ScoreboardAPIUrl,
-		count
-	);
-	Console << U"Get: {}"_fmt(requestUrl);
-	return SimpleHTTP::GetAsync(requestUrl, { });
+	// GET リクエストの URL を作成する
+	const URL requestURL = U"{}?count={}"_fmt(url, count);
+
+	return SimpleHTTP::GetAsync(requestURL, {});
 }
 
-/// @brief 新しいスコアを送信するタスクを作成
-/// @param username ユーザー名
+/// @brief サーバにスコアを送信するタスクを作成します。
+/// @param url サーバの URL
+/// @param userName ユーザー名
 /// @param score スコア
-/// @param data 追加データ
+/// @param additionalData 追加の情報
 /// @return タスク
-AsyncHTTPTask PushScoreAsync(const StringView username, double score, JSON data = JSON::Invalid())
+AsyncHTTPTask CreatePostTask(const URLView url, const StringView userName, double score, JSON additionalData = JSON::Invalid())
 {
-	String requestUrl = U"{}?username={}&score={}"_fmt(
-		ScoreboardAPIUrl,
-		PercentEncode(username),
-		PercentEncode(Format(score))
-	);
-	if (data)
+	// POST リクエストの URL を作成する
+	URL requestURL = U"{}?username={}&score={}"_fmt(url, PercentEncode(userName), PercentEncode(Format(score)));
+
+	if (additionalData)
 	{
-		requestUrl.append(U"&data=");
-		requestUrl.append(PercentEncode(data.formatMinimum()));
+		requestURL += (U"&data=" + PercentEncode(additionalData.formatMinimum()));
 	}
-	HashTable<String, String> headers = {
-		{U"Content-Type", U"application/x-www-form-urlencoded; charset=UTF-8"}
+
+	const HashTable<String, String> headers =
+	{
+		{ U"Content-Type", U"application/x-www-form-urlencoded; charset=UTF-8" }
 	};
-	Console << U"Push: {}"_fmt(requestUrl);
-	return SimpleHTTP::PostAsync(requestUrl, headers, nullptr, 0);
+
+	return SimpleHTTP::PostAsync(requestURL, headers, nullptr, 0);
+}
+
+/// @brief ランダムなスコアを返します。
+/// @return ランダムなスコア
+double MakeRandomScore()
+{
+	return (Random(10000) / 100.0);
+}
+
+/// @brief ランダムなユーザー名を作成します。
+/// @return ランダムなユーザー名
+String MakeRandomUserName()
+{
+	static const Array<String> words =
+	{
+		U"Blue", U"Red", U"Green", U"Silver", U"Gold",
+		U"Lion", U"Dragon", U"Tiger", U"Eagle", U"Shark",
+		U"Pizza", U"Curry", U"Ramen", U"Sushi", U"Salad",
+	};
+
+	return (words.choice() + words.choice() + U"{:0>4}"_fmt(Random(9999)));
 }
 
 void Main()
 {
-	Scene::SetBackground(Palette::Dimgray);
-	
-	SimpleTable scoreboardTable;
+	// Google Apps Script の URL（サンプル用に用意。定期的に記録はクリアされます）
+	constexpr URLView LeaderboardURL = U"https://script.google.com/macros/s/AKfycbwyGtLLG628VDu_-0wTZDHVyEdbja0xgWFMoZfc_tjxEfYn69QrZgTDyHS1t2gbffEJ/exec";
 
-	Optional<AsyncHTTPTask> scoreboardGetTask = GetScoreboardJsonAsync();
-	Optional<AsyncHTTPTask> scoreboardPostTask;
+	Scene::SetBackground(ColorF{ 0.6, 0.8, 0.7 });
 
-	TextEditState usernameInput(U"ユーザー{}"_fmt(Random(100)));
+	const Font font{ FontMethod::MSDF, 48 };
+
+	// リーダーボードを表示するテーブル
+	SimpleTable table;
+
+	// リーダーボードを取得するタスク
+	Optional<AsyncHTTPTask> leaderboardGetTask = CreateGetTask(LeaderboardURL);
+
+	// スコアを送信するタスク
+	Optional<AsyncHTTPTask> scorePostTask;
+
+	// 自身のユーザ名
+	String userName = MakeRandomUserName();
+
+	// 自身のスコア
+	double score = MakeRandomScore();
+
+	// 最後にリーダーボードを取得した時刻
+	DateTime lastUpdateTime{ 2023, 1, 1 };
+
+	// スコアを送信したか
+	bool isScorePosted = false;
 
 	while (System::Update())
 	{
-		//// AsyncHTTPTaskの処理 ////
+		// 通信が完了しているか
+		const bool isReady = (not leaderboardGetTask) && (not scorePostTask);
 
-		// 送信処理
-		if (scoreboardPostTask &&
-			scoreboardPostTask->isReady())
+		// 自身のユーザー名を更新する
+		if (SimpleGUI::Button(U"\U000F0004 {}"_fmt(userName), Vec2{ 40, 40 }, 330))
 		{
-			auto& response = scoreboardPostTask->getResponse();
-			Console << U"Response: {}"_fmt(response.getStatusLine());
+			userName = MakeRandomUserName();
+			isScorePosted = false;
+		}
 
-			if (response.isOK())
+		// 自身のスコアを更新する
+		if (SimpleGUI::Button(U"\U000F0AE2 {}"_fmt(score), Vec2{ 384, 40 }, 160))
+		{
+			score = MakeRandomScore();
+			isScorePosted = false;
+		}
+
+		// 現在のスコアを送信する
+		if (SimpleGUI::Button(U"\U000F0415 Register", { 560, 40 }, 160, (isReady && (not isScorePosted))))
+		{
+			scorePostTask = CreatePostTask(LeaderboardURL, userName, score);
+		}
+
+		// リーダーボードを更新する
+		if (SimpleGUI::Button(U"\U000F0453 Refresh", { 560, 100 }, 160, isReady))
+		{
+			leaderboardGetTask = CreateGetTask(LeaderboardURL);
+		}
+
+		// リーダーボードの更新時刻を表示する
+		font(U"Last updated:\n{}"_fmt(lastUpdateTime)).draw(12, 560, 140, ColorF{ 0.25 });
+
+		// スコア送信処理が完了したら
+		if (scorePostTask && scorePostTask->isReady())
+		{
+			if (const auto response = scorePostTask->getResponse();
+				response.isOK())
 			{
-				// スコアを送信したあと、スコアボードを更新する
-				scoreboardGetTask = GetScoreboardJsonAsync();
+				// スコアを送信済みにし、再送信できないようにする
+				isScorePosted = true;
+
+				// リーダーボードを更新する
+				leaderboardGetTask = CreateGetTask(LeaderboardURL);
+			}
+			else
+			{
+				Print << U"Failed to submit the score.";
 			}
 
-			scoreboardPostTask.reset();
+			scorePostTask.reset();
 		}
 
-		// 取得処理
-		if (scoreboardGetTask &&
-			scoreboardGetTask->isReady())
+		// リーダーボード取得処理が完了したら
+		if (leaderboardGetTask && leaderboardGetTask->isReady())
 		{
-			auto& response = scoreboardGetTask->getResponse();
-			Console << U"Response: {}"_fmt(response.getStatusLine());
-
-			if (response.isOK())
+			if (const auto response = leaderboardGetTask->getResponse();
+				response.isOK())
 			{
-				Array<ScoreboardRecord> scoreboard;
-				ParseScoreboardJson(scoreboardGetTask->getAsJSON(), scoreboard);
-				scoreboardTable = CreateScoreboardTable(scoreboard);
+				Array<Record> leaderboard;
+
+				if (ReadLeaderboard(leaderboardGetTask->getAsJSON(), leaderboard))
+				{
+					// リーダーボードを表示するテーブルの内容を更新する
+					table = ToTable(leaderboard);
+
+					// 最後にリーダーボードを取得した時刻を更新する
+					lastUpdateTime = DateTime::Now();
+				}
+				else
+				{
+					Print << U"Failed to read the leaderboard.";
+				}
 			}
 
-			scoreboardGetTask.reset();
+			leaderboardGetTask.reset();
 		}
 
-		//// UI ////
-
-		bool uiEnabled = not scoreboardGetTask.has_value() && not scoreboardPostTask.has_value();
-
-		SimpleGUI::TextBox(usernameInput, { 10, 10 }, 200, 20, uiEnabled);
-
-		if (SimpleGUI::Button(U"追加 \U000F0415", { 215, 10 }, unspecified, uiEnabled))
+		// リーダーボードを描画する
+		if (table)
 		{
-			String username = usernameInput.text;
-			double score = RandomClosed(0.0, 100.0);
-
-			// 新しいスコアを送信する
-			scoreboardPostTask = PushScoreAsync(username, score);
+			table.draw({ 40, 100 });
 		}
-
-		Line{ 330, 10, 330, 45 }.draw(Palette::Black);
-
-		if (SimpleGUI::Button(U"更新 \U000F0453", { 340, 10 }, unspecified, uiEnabled))
+		else
 		{
-			// スコアボードを更新する
-			scoreboardGetTask = GetScoreboardJsonAsync();
+			// リーダーボードが空の場合は、ロード中であることを示すアニメーションを描画する
+			Circle{ 292, 260, 80 }.drawArc((Scene::Time() * 90_deg), 300_deg, 10, 0);
 		}
-
-		scoreboardTable.draw({ 10, 55 });
 	}
 }
