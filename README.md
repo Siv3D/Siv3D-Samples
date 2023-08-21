@@ -18,10 +18,10 @@
 | BGM クロスフェード 🏆 | クロンダイク 🏆 | 万華鏡ランダムウォーク 🏆 |
 | Audio Crossfade | Klondike | Random Walk Kaleidoscope |
 
-| <a href="Samples/GPT3Story"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/GPT3Story/Screenshot/1.png" width="250px"></a> | <a href="Samples/IsometricView"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/IsometricView/Screenshot/1.png" width="250px"></a> |
-|:--:|:--:|
-| AI による物語生成 | クォータービュー |
-| AI Story Generator | Isometric View |
+| <a href="Samples/GPT3Story"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/GPT3Story/Screenshot/1.png" width="250px"></a> | <a href="Samples/IsometricView"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/IsometricView/Screenshot/1.png" width="250px"></a> | <a href="Samples/AutoTiles"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/AutoTiles/Screenshot/1.png" width="250px"></a> |
+|:--:|:--:|:--:|
+| AI による物語生成 | クォータービュー | オートタイル |
+| AI Story Generator | Isometric View | Auto Tiles |
 
 
 🏆 マークはユーザ投稿サンプルです。
