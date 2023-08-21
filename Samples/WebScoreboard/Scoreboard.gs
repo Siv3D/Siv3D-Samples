@@ -1,20 +1,24 @@
 const Spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-const ScoreboardSheet = Spreadsheet.getSheets()[0];
+const LeaderboardSheet = Spreadsheet.getSheets()[0];
 const QuerySheet = Spreadsheet.getSheets()[1];
 const ResultSheet = Spreadsheet.getSheets()[2];
-const DefaultScore = 0;
+
+const DEFAULT_SCORE = 0; // スコアの読み取りに失敗した場合に設定する値
+const TIMEZONE = "Asia/Tokyo"; // タイムスタンプのタイムゾーン
+const ANONYMOUS_NAME = "[匿名]"; // 匿名ユーザーの表示名
+const RECORD_LIMIT = 100; // レコードを取得できる上限数 (サーバー負荷を抑えるため)
 
 /**
  * シート「検索クエリ」のセルB2に値を設定
  * @param {string} value クエリ
  */
-function query(value)
+function setSearchQuery(value)
 {
   QuerySheet.getRange(2, 2).setValue(value);
 }
 
 /**
- * 値をnumber型に変換し、失敗した場合はDefaultScoreを返す
+ * 値をnumber型に変換し、失敗した場合はDEFAULT_SCOREを返す
  * @param {any} value ユーザー名
  */
 function parseScore(value)
@@ -31,7 +35,7 @@ function parseScore(value)
     return parseFloat(value);
   }
 
-  return DefaultScore;
+  return DEFAULT_SCORE;
 }
 
 /**
@@ -43,33 +47,40 @@ function parseScore(value)
 function pushScore(username, score, data=undefined)
 {
   // 日本時間、現在のタイムスタンプを作成
-  let timestamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+  let timestamp = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
 
-  // ユーザー名が正しくない場合は匿名にする
+  // ユーザー名の型が文字列型ではないか、
+  // 空の場合は匿名にする
   if (typeof(username) !== "string" ||
     username.length == 0)
   {
-    username = "[匿名]";
+    username = ANONYMOUS_NAME;
   }
 
   // スコアを読み込む
   score = parseScore(score);
 
-  // スコアデータを追加
-  ScoreboardSheet.appendRow([
+  // スコアデータをシートに追加
+  LeaderboardSheet.appendRow([
     timestamp, username, score, JSON.stringify(data)
   ]);
 }
 
 /**
  * 上位のスコアを取得
- * @param {number} count 取得個数
+ * @param {number} limit 取得最大個数
  * @return {{ username: string, score: number }[]} スコアの一覧
  */
-function getTopScores(count=10)
+function getTopScores(limit = null)
 {
+  if (typeof(username) !== "number" ||
+    limit > RECORD_LIMIT)
+  {
+    limit = RECORD_LIMIT;
+  }
+
   // クエリ文字列を設定
-  query(`select B, C, D where A is not null order by C desc limit ${count}`);
+  setSearchQuery(`select B, C, D where A is not null order by C desc limit ${limit}`);
 
   let srcData = ResultSheet.getDataRange().getValues();
   let labelList = srcData.shift();
@@ -113,36 +124,40 @@ function getTopScores(count=10)
 }
 
 /**
- * GET
+ * GETリクエスト処理
  */
 function doGet(e)
 {
-  let list = [];
+  // 取得個数
+  let count = null;
 
   if ("count" in e.parameter &&
     e.parameter.count.match(/^\d+$/g))
   {
-    let count = parseInt(e.parameter.count, 10);
-    list = getTopScores(count);
-  }
-  else
-  {
-    list = getTopScores();
+    count = parseInt(e.parameter.count, 10);
   }
 
+  // リーダーボードを取得
+  let leaderboard = getTopScores(count);
+
+  // リーダーボードをJSONで送信
   return ContentService.createTextOutput()
-    .setContent(JSON.stringify(list))
+    .setContent(JSON.stringify(leaderboard))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
- * POST
+ * POSTリクエスト処理
  */
 function doPost(e)
 {
+  // エラーメッセージ
   let errorMessages = [];
 
+  // 追加データ
   let parsedData = undefined;
+
+  // クエリのバリデーションと例外処理
   if (!("username" in e.parameter))
   {
     errorMessages.push("パラメータusernameが存在しません");
@@ -162,14 +177,16 @@ function doPost(e)
       errorMessages.push("パラメータdataの文法が間違っています");
     }
   }
-
   if (errorMessages.length > 0)
   {
+    // 異常終了
     throw Error(errorMessages.join("\n"));
   }
 
+  // スコアを追加
   pushScore(e.parameter.username, e.parameter.score, parsedData);
 
+  // 正常終了
   return ContentService.createTextOutput("OK");
 }
 

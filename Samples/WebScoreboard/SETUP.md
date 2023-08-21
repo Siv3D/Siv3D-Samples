@@ -1,10 +1,10 @@
-# スコアボードの作成方法
+# リーダーボードの作成方法
 
 ## スプレッドシートの作成
 
 Googleアカウントにログインし、下記リンクからスプレッドシートのコピーを作成する
 
-| [Scoreboardテンプレート](https://docs.google.com/spreadsheets/d/1IHG3NuneuxWctajEr_-44pAU8F2YZDZbRbDODK7w37U/copy) |
+| [Leaderboardテンプレート](https://docs.google.com/spreadsheets/d/1IHG3NuneuxWctajEr_-44pAU8F2YZDZbRbDODK7w37U/copy) |
 |-|
 
 ## APIの公開
@@ -25,13 +25,14 @@ Googleアカウントにログインし、下記リンクからスプレッド�
 
 ## URLの置き換え
 
-`Main.cpp`の3行目のURLをコピーしたURLに置き換える
+`Main.cpp`の`LeaderboardURL`の値をコピーしたURLに置き換える
 
 ```cpp
-# include <Siv3D.hpp> // OpenSiv3D v0.6.10
+void Main()
+{
+	// Google Apps Script の URL
+	constexpr URLView LeaderboardURL = U"<ここにURLを貼り付け>";
 
-// Google Apps ScriptのURL
-constexpr static StringView ScoreboardAPIUrl = U"<ここにURLを貼り付け>";
-
-...
+  ...
+}
 ```
