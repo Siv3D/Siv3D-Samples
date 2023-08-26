@@ -25,7 +25,7 @@
 
 | <a href="Samples/Leaderboard"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Leaderboard/Screenshot/1.png" width="250px"></a> |
 |:--:|
-| ンライン リーダーボード 🏆 |
+| オンライン リーダーボード 🏆 |
 | Online Leaderboard |
 
 
@@ -60,7 +60,7 @@
 |:--------------|:---------------------------------------------|
 | Author        | 作者                                         |
 | Affiliation   | 所属（空欄可）                               |
-| Siv3D Version | v0.6.6 ← 動作を確認した Siv3D バージョン              |
+| Siv3D Version | v0.6.11 ← 動作を確認した Siv3D バージョン              |
 | Platform      | Windows, macOS, Linux, Web のうち、動作を確認したもの |
 
 ## 説明 | Description
