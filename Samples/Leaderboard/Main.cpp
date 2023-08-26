@@ -67,7 +67,7 @@ bool ReadLeaderboard(const JSON& json, Array<Record>& dst)
 /// @return SimpleTable
 SimpleTable ToTable(const Array<Record>& leaderboard)
 {
-	SimpleTable table{ { 100, 260, 140 }};
+	SimpleTable table{ { 100, 260, 140 } };
 
 	// ヘッダー行を追加する
 	table.push_back_row({ U"Rank", U"Player Name", U"Score" }, { 0, 0, 0 });
@@ -153,7 +153,7 @@ void Main()
 {
 	// Google Apps Script の URL（サンプル用の URL. 定期的に記録がクリアされます）
 	// 実行ファイルに URL が直接埋め込まれるのを防ぐため、SIV3D_OBFUSCATE() で URL を難読化
-	const std::string url{ SIV3D_OBFUSCATE("https://script.google.com/macros/s/AKfycbwyGtLLG628VDu_-0wTZDHVyEdbja0xgWFMoZfc_tjxEfYn69QrZgTDyHS1t2gbffEJ/exec") };
+	const std::string url{ SIV3D_OBFUSCATE("https://script.google.com/macros/s/AKfycby-oJycoQPkdumtPjNYoXej1hRB-BjZaa9ZgnfHHesdMkqbY6TeW3h9fctIxXeIPM2A/exec") };
 	const URL LeaderboardURL = Unicode::Widen(url);
 
 	Scene::SetBackground(ColorF{ 0.6, 0.8, 0.7 });
