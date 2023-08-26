@@ -151,8 +151,10 @@ String MakeRandomUserName()
 
 void Main()
 {
-	// Google Apps Script の URL（サンプル用に用意。定期的に記録はクリアされます）
-	constexpr URLView LeaderboardURL = U"https://script.google.com/macros/s/AKfycbwyGtLLG628VDu_-0wTZDHVyEdbja0xgWFMoZfc_tjxEfYn69QrZgTDyHS1t2gbffEJ/exec";
+	// Google Apps Script の URL（サンプル用の URL. 定期的に記録がクリアされます）
+	// 実行ファイルに URL が直接埋め込まれるのを防ぐため、SIV3D_OBFUSCATE() で URL を難読化
+	const std::string url{ SIV3D_OBFUSCATE("https://script.google.com/macros/s/AKfycbwyGtLLG628VDu_-0wTZDHVyEdbja0xgWFMoZfc_tjxEfYn69QrZgTDyHS1t2gbffEJ/exec") };
+	const URL LeaderboardURL = Unicode::Widen(url);
 
 	Scene::SetBackground(ColorF{ 0.6, 0.8, 0.7 });
 
