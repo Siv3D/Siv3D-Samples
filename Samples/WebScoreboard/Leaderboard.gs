@@ -73,7 +73,7 @@ function pushScore(username, score, data=undefined)
  */
 function getTopScores(limit = null)
 {
-  if (typeof(username) !== "number" ||
+  if (typeof(limit) !== "number" ||
     limit > RECORD_LIMIT)
   {
     limit = RECORD_LIMIT;
