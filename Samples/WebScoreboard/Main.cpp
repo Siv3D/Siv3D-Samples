@@ -201,7 +201,7 @@ void Main()
 		}
 
 		// 現在のスコアを送信する
-		if (SimpleGUI::Button(U"\U000F0415 Register", { 560, 40 }, 160, (isReady && (not isScorePosted))))
+		if (SimpleGUI::Button(U"\U000F0415 Submit", { 560, 40 }, 160, (isReady && (not isScorePosted))))
 		{
 			scorePostTask = CreatePostTask(LeaderboardURL, userName, score);
 		}
