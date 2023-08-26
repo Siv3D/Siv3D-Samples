@@ -3,7 +3,7 @@
 |               |                                         |
 |:--------------|:----------------------------------------|
 | Author        | [sthairno](https://github.com/sthairno) |
-| Affiliation   | Siv3D                                   |
+| Affiliation   |                                         |
 | Siv3D Version | v0.6.11                                 |
 | Platform      | Windows, macOS, Linux                   |
 
