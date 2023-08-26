@@ -1,38 +1,37 @@
-# リーダーボードの作成方法
+# リーダーボード サーバーの作成方法
 
-## スプレッドシートの作成
+## スプレッドシートを作成する
+Google アカウントにログインした状態で、下記リンクから Leaderboard 用スプレッドシートのテンプレートをコピーします。
 
-Googleアカウントにログインし、下記リンクからスプレッドシートのコピーを作成する
-
-| [Leaderboardテンプレート](https://docs.google.com/spreadsheets/d/1IHG3NuneuxWctajEr_-44pAU8F2YZDZbRbDODK7w37U/copy) |
+| [Leaderboard テンプレート](https://docs.google.com/spreadsheets/d/1IHG3NuneuxWctajEr_-44pAU8F2YZDZbRbDODK7w37U/copy) |
 |-|
 
-## APIの公開
+## API を公開する
 
-1. コピーしたスプレッドシートを開き、画面上のメニューから`拡張機能`→`Apps Script`と進みGASの編集画面を表示
+1. コピーしたスプレッドシートを開き、画面上のメニューから `拡張機能` → `Apps Script` と進み、GAS の編集画面を表示します。
 
-2. 画面右上にある青い`デプロイ`ボタンをクリック→`新しいデプロイ`
+2. 画面右上の青いボタンから `デプロイ` → `新しいデプロイ` をクリックします。
 
-3. `新しいデプロイ`ダイアログが表示されたら、設定を以下の通りに変更してデプロイ
+3. `新しいデプロイ` ダイアログが表示されたら、以下の設定でデプロイします。
     - 次のユーザーとして実行：`自分`
     - アクセスできるユーザー：`全員`
   ![](Screenshot/3.png)
 
-4. アクセス権が要求される場合があるので、その場合は許可をする
+4. アクセス権を要求された場合は、許可をします（心配な場合はサブの Google アカウントを使用してください）
 
-5. デプロイが完了したら、ウェブアプリのURLをコピー
+5. デプロイが完了したら、ウェブアプリの URL をコピーします。
 ![](Screenshot/4.png)
 
-## URLの置き換え
-
-`Main.cpp`の`LeaderboardURL`の値をコピーしたURLに置き換える
+## URL を置き換える
+サンプル `Main.cpp` に含まれる URL を、新しい URL に置き換えます。
 
 ```cpp
 void Main()
 {
 	// Google Apps Script の URL
-	constexpr URLView LeaderboardURL = U"<ここにURLを貼り付け>";
+	const std::string url{ SIV3D_OBFUSCATE("https://script.google.com/...") };
+	const URL LeaderboardURL = Unicode::Widen(url);
 
-  ...
+	// ...
 }
 ```
