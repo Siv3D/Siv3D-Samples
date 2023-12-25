@@ -23,10 +23,10 @@
 | AI による物語生成 | クォータービュー | オートタイル |
 | AI Story Generator | Isometric View | Auto Tiles |
 
-| <a href="Samples/Leaderboard"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Leaderboard/Screenshot/1.png" width="250px"></a> |
-|:--:|
-| オンライン リーダーボード 🏆 |
-| Online Leaderboard |
+| <a href="Samples/Leaderboard"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Leaderboard/Screenshot/1.png" width="250px"></a> | <a href="Samples/Numpad"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Numpad/Screenshot/1.png" width="250px"></a> |
+|:--:|:--:|
+| オンライン リーダーボード 🏆 | 数値パッド |
+| Online Leaderboard | Number Pad |
 
 
 🏆 マークはユーザ投稿サンプルです。
