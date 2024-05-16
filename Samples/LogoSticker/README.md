@@ -1,19 +1,19 @@
-# ƒƒSƒXƒeƒbƒJ[ | Logo Sticker
+# ãƒ­ã‚´ã‚¹ãƒ†ãƒƒã‚«ãƒ¼ | Logo Sticker
 
 |               |                                              |
 |:--------------|:---------------------------------------------|
-| Author        | [ƒ{ƒgƒ€](https://twitter.com/camefrombottom)  |
-| Affiliation   | Siv3D                                        |
+| Author        | [ãƒœãƒˆãƒ ](https://twitter.com/camefrombottom)  |
+| Affiliation   |                                              |
 | Siv3D Version | v0.6.14                                      |
 | Platform      | Windows                                      |
 
-## à–¾ | Description
+## èª¬æ˜Ž | Description
 
 https://github.com/CMander02/CuteServiceLogos
-‚ÌƒfƒUƒCƒ“‚ðŽQl‚É‚µ‚½Siv3D‚ÌƒƒSƒXƒeƒbƒJ[‚Å‚·B
-‘•üƒfƒUƒCƒ“‚ÍSiv3D‚Ìƒ}ƒXƒRƒbƒgƒLƒƒƒ‰ƒNƒ^[‚Å‚ ‚éSiv3D‚­‚ñ‚ðƒ‚ƒ`[ƒt‚É‚µ‚Ä‚¢‚Ü‚·B
-ƒ{ƒ^ƒ“‚ð‚¨‚µ‚Ä“§‰ßPNG‚Å•Û‘¶‚·‚é‚±‚Æ‚ª‚Å‚«‚Ü‚·B
+ã®ãƒ‡ã‚¶ã‚¤ãƒ³ã‚’å‚è€ƒã«ã—ãŸSiv3Dã®ãƒ­ã‚´ã‚¹ãƒ†ãƒƒã‚«ãƒ¼ã§ã™ã€‚
+è£…é£¾ãƒ‡ã‚¶ã‚¤ãƒ³ã¯Siv3Dã®ãƒžã‚¹ã‚³ãƒƒãƒˆã‚­ãƒ£ãƒ©ã‚¯ã‚¿ãƒ¼ã§ã‚ã‚‹Siv3Dãã‚“ã‚’ãƒ¢ãƒãƒ¼ãƒ•ã«ã—ã¦ã„ã¾ã™ã€‚
+ãƒœã‚¿ãƒ³ã‚’ãŠã—ã¦é€éŽPNGã§ä¿å­˜ã™ã‚‹ã“ã¨ãŒã§ãã¾ã™ã€‚
 
-## ƒXƒNƒŠ[ƒ“ƒVƒ‡ƒbƒg | Screenshots
+## ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚·ãƒ§ãƒƒãƒˆ | Screenshots
 
 ![](Screenshot/1.png)
