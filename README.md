@@ -23,10 +23,10 @@
 | AI による物語生成 | クォータービュー | オートタイル |
 | AI Story Generator | Isometric View | Auto Tiles |
 
-| <a href="Samples/Leaderboard"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Leaderboard/Screenshot/1.png" width="250px"></a> | <a href="Samples/Numpad"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Numpad/Screenshot/1.png" width="250px"></a> |
-|:--:|:--:|
-| オンライン リーダーボード 🏆 | 数値パッド |
-| Online Leaderboard | Number Pad |
+| <a href="Samples/Leaderboard"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Leaderboard/Screenshot/1.png" width="250px"></a> | <a href="Samples/Numpad"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/Numpad/Screenshot/1.png" width="250px"></a> | <a href="Samples/LogoSticker"><img src="https://raw.githubusercontent.com/Siv3D/Siv3D-Samples/main/Samples/LogoSticker/Screenshot/1.png" width="250px"></a> |
+|:--:|:--:|:--:|
+| オンライン リーダーボード 🏆 | 数値パッド | ロゴステッカー 🏆 |
+| Online Leaderboard | Number Pad | Logo Sticker |
 
 
 🏆 マークはユーザ投稿サンプルです。
@@ -60,7 +60,7 @@
 |:--------------|:---------------------------------------------|
 | Author        | 作者                                         |
 | Affiliation   | 所属（空欄可）                               |
-| Siv3D Version | v0.6.11 ← 動作を確認した Siv3D バージョン              |
+| Siv3D Version | v0.6.14 ← 動作を確認した Siv3D バージョン              |
 | Platform      | Windows, macOS, Linux, Web のうち、動作を確認したもの |
 
 ## 説明 | Description

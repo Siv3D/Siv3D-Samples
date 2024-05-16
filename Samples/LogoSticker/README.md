@@ -5,14 +5,13 @@
 | Author        | [ボトム](https://twitter.com/camefrombottom)  |
 | Affiliation   |                                              |
 | Siv3D Version | v0.6.14                                      |
-| Platform      | Windows                                      |
+| Platform      | Windows, macOS, Linux                        |
 
 ## 説明 | Description
 
-https://github.com/CMander02/CuteServiceLogos
-のデザインを参考にしたSiv3Dのロゴステッカーです。
-装飾デザインはSiv3DのマスコットキャラクターであるSiv3Dくんをモチーフにしています。
-ボタンをおして透過PNGで保存することができます。
+https://github.com/CMander02/CuteServiceLogos のデザインを参考にした Siv3D のロゴステッカーです。  
+装飾デザインは Siv3D のマスコットキャラクターである Siv3D くんをモチーフにしています。  
+ボタンを押すと透過 PNG 形式で保存できます。
 
 ## スクリーンショット | Screenshots
 
