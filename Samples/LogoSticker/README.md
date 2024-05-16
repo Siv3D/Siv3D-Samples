@@ -9,7 +9,7 @@
 
 ## 説明 | Description
 
-https://github.com/CMander02/CuteServiceLogos のデザインを参考にした Siv3D のロゴステッカーです。  
+https://github.com/SAWARATSUKI/KawaiiLogos のデザインを参考にした Siv3D のロゴステッカーです。  
 装飾デザインは Siv3D のマスコットキャラクターである Siv3D くんをモチーフにしています。  
 ボタンを押すと透過 PNG 形式で保存できます。
 
