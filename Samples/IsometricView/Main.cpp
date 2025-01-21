@@ -1,10 +1,10 @@
-# include <Siv3D.hpp> // OpenSiv3D v0.6.8
+# include <Siv3D.hpp> // OpenSiv3D v0.6.15
 
 // タイルの一辺の長さ（ピクセル）
-inline constexpr Vec2 TileOffset{ 50, 25 };
+inline constexpr Vec2 TileOffset{ 48, 24 };
 
 // タイルの厚み（ピクセル）
-inline constexpr int32 TileThickness = 15;
+inline constexpr int32 TileThickness = 17;
 
 /*
 	インデックスとタイルの配置の関係 (N = 4)
@@ -146,6 +146,27 @@ Optional<Point> ToIndex(const Vec2& pos, const Array<Quad>& columnQuads, const A
 	return Point{ x, y };
 }
 
+/// @brief 画像を読み込み、アルファ乗算済みのテクスチャを作成します。
+/// @param path 画像ファイルのパス
+/// @return アルファ乗算済みのテクスチャ
+/// @remark 境界付近の品質を向上させるため、アルファ乗算済みのテクスチャを作成します。
+/// @remark 描画時は `BlendState::Premultiplied` を指定してください。
+[[nodiscard]]
+Texture LoadPremultipliedTexture(FilePathView path)
+{
+	Image image{ path };
+	Color* p = image.data();
+	const Color* const pEnd = (p + image.num_pixels());
+	while (p != pEnd)
+	{
+		p->r = static_cast<uint8>((static_cast<uint16>(p->r) * p->a) / 255);
+		p->g = static_cast<uint8>((static_cast<uint16>(p->g) * p->a) / 255);
+		p->b = static_cast<uint8>((static_cast<uint16>(p->b) * p->a) / 255);
+		++p;
+	}
+	return Texture{ image };
+}
+
 void Main()
 {
 	// ウィンドウをリサイズする
@@ -153,7 +174,7 @@ void Main()
 
 	// 背景を水色にする
 	Scene::SetBackground(ColorF{ 0.8, 0.9, 1.0 });
-	
+
 	// https://kenney.nl/assets/isometric-roads
 	// からファイル一式をダウンロードし、「png」フォルダを App フォルダにコピーしてください。
 
@@ -170,7 +191,7 @@ void Main()
 			continue;
 		}
 
-		textures << Texture{ filePath };
+		textures << LoadPremultipliedTexture(filePath);
 	}
 
 	// 全部で 88 種類のタイルが読み込まれれば正常
@@ -217,26 +238,31 @@ void Main()
 			// 2D カメラによる座標変換を適用する
 			const auto tr = camera.createTransformer();
 
-			// 上から順にタイルを描く
-			for (int32 i = 0; i < (N * 2 - 1); ++i)
 			{
-				// x の開始インデックス
-				const int32 xi = (i < (N - 1)) ? 0 : (i - (N - 1));
+				// 乗算済みアルファ用のブレンドステートを適用する
+				const ScopedRenderStates2D blend{ BlendState::Premultiplied };
 
-				// y の開始インデックス
-				const int32 yi = (i < (N - 1)) ? i : (N - 1);
-
-				// 左から順にタイルを描く
-				for (int32 k = 0; k < (N - Abs(N - i - 1)); ++k)
+				// 上から順にタイルを描く
+				for (int32 i = 0; i < (N * 2 - 1); ++i)
 				{
-					// タイルのインデックス
-					const Point index{ (xi + k), (yi - k) };
+					// x の開始インデックス
+					const int32 xi = (i < (N - 1)) ? 0 : (i - (N - 1));
 
-					// そのタイルの底辺中央の座標
-					const Vec2 pos = ToTileBottomCenter(index, N);
+					// y の開始インデックス
+					const int32 yi = (i < (N - 1)) ? i : (N - 1);
 
-					// 底辺中央を基準にタイルを描く
-					textures[grid[index]].draw(Arg::bottomCenter = pos);
+					// 左から順にタイルを描く
+					for (int32 k = 0; k < (N - Abs(N - i - 1)); ++k)
+					{
+						// タイルのインデックス
+						const Point index{ (xi + k), (yi - k) };
+
+						// そのタイルの底辺中央の座標
+						const Vec2 pos = ToTileBottomCenter(index, N);
+
+						// 底辺中央を基準にタイルを描く
+						textures[grid[index]].draw(Arg::bottomCenter = pos);
+					}
 				}
 			}
 
@@ -299,40 +325,45 @@ void Main()
 			// 背景
 			TileMenuRoundRect.draw();
 
-			// 各タイル
-			for (int32 y = 0; y < 4; ++y)
 			{
-				for (int32 x = 0; x < 22; ++x)
+				// 乗算済みアルファ用のブレンドステートを適用する
+				const ScopedRenderStates2D blend{ BlendState::Premultiplied };
+
+				// 各タイル
+				for (int32 y = 0; y < 4; ++y)
 				{
-					// タイルの長方形
-					const Rect rect{ (20 + x * 56), (20 + y * 50), 56, 50 };
-
-					// タイルの種類
-					const int32 tileType = (y * 22 + x);
-
-					// 現在選択されているタイルであれば
-					if (tileType == tileTypeSelected)
+					for (int32 x = 0; x < 22; ++x)
 					{
-						// 背景を灰色にする
-						rect.draw(ColorF{ 0.85 });
-					}
+						// タイルの長方形
+						const Rect rect{ (20 + x * 56), (20 + y * 50), 56, 50 };
 
-					// タイルの上にマウスカーソルがあれば
-					if (rect.mouseOver())
-					{
-						// カーソルを手のアイコンにする
-						Cursor::RequestStyle(CursorStyle::Hand);
+						// タイルの種類
+						const int32 tileType = (y * 22 + x);
 
-						// 左クリックされたら		
-						if (MouseL.down())
+						// 現在選択されているタイルであれば
+						if (tileType == tileTypeSelected)
 						{
-							// 選択しているタイルの種類を更新する
-							tileTypeSelected = tileType;
+							// 背景を灰色にする
+							rect.draw(ColorF{ 0.85 });
 						}
-					}
 
-					// タイルを表示する
-					textures[tileType].scaled(0.5).drawAt(rect.center());
+						// タイルの上にマウスカーソルがあれば
+						if (rect.mouseOver())
+						{
+							// カーソルを手のアイコンにする
+							Cursor::RequestStyle(CursorStyle::Hand);
+
+							// 左クリックされたら		
+							if (MouseL.down())
+							{
+								// 選択しているタイルの種類を更新する
+								tileTypeSelected = tileType;
+							}
+						}
+
+						// タイルを表示する
+						textures[tileType].scaled(0.5).drawAt(rect.center());
+					}
 				}
 			}
 		}
